@@ -8,7 +8,7 @@
     "grid_shape": {
       "n": 64,
       "m": 64,
-      "l": 64
+      "l": 5
     },
     "corners": {
       "top_SW": {
