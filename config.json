@@ -2,6 +2,7 @@
   "BASE_DIR": "/media/iarv/Samsung/Events",
   "sigma_km": 5,
   "alpha": 0.0025,
+  "LOGS_DIR": "/media/iarv/Samsung/Events/Logs",
 
   "EOD": {
     "grid_shape": {
