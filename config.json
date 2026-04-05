@@ -3,6 +3,7 @@
   "LOGS_DIR": "/media/iarv/Samsung/Events/Logs",
   "sigma_km": 5,
   "alpha": 0.0025,
+  "FIX_GLITCHES_WITH_INTERPOLATION": true,
 
   "EOD": {
     "grid_shape": {
