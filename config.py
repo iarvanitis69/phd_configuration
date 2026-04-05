@@ -1,14 +1,25 @@
 import json
 import os
 
-# Path προς το config.json (μέσα στο submodule σου)
-CONFIG_PATH = os.path.join(os.path.dirname(__file__), "config.json")
+# Absolute path (safe για όλα τα περιβάλλοντα)
+CONFIG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
 
-# Φόρτωση μία φορά (όταν γίνει import)
-with open(CONFIG_PATH, "r", encoding="utf-8") as f:
-    CONFIG = json.load(f)
+# Singleton load (μία φορά)
+_CONFIG = None
 
 
-# Helper function (προαιρετική)
+def _load():
+    global _CONFIG
+    if _CONFIG is None:
+        with open(CONFIG_PATH, "r", encoding="utf-8") as f:
+            _CONFIG = json.load(f)
+    return _CONFIG
+
+
+# Public access
 def get(key, default=None):
-    return CONFIG.get(key, default)
+    return _load().get(key, default)
+
+
+def all():
+    return _load()
