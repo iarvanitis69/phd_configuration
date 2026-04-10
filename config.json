@@ -13,6 +13,8 @@
   "high_frequency":35,
   "min_magnitude": 2.5,
   "max_event_depth":75.0,
+  "preset_on_data_acquizition": 30,
+  "offset_on_data_acquizition": 240,
 
   "STUDY_AREA": {
     "grid_shape": {
