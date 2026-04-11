@@ -1,6 +1,12 @@
 {
   "BASE_DIR": "/media/iarv/Samsung/Events",
   "LOGS_DIR": "/media/iarv/Samsung/Events/Logs",
+
+  "min_magnitude_acquisition": 3,
+  "max_event_depth_acquisition":75.0,
+  "preset_on_data_acquisition": 30,
+  "offset_on_data_acquisition": 240,
+  
   "sigma_km": 5,
   "alpha": 0.0025,
   "FIX_GLITCHES_WITH_INTERPOLATION": false,
@@ -11,10 +17,6 @@
   "maxDepth":75,
   "low_frequency":1,
   "high_frequency":35,
-  "min_magnitude": 3,
-  "max_event_depth":75.0,
-  "preset_on_data_acquisition": 30,
-  "offset_on_data_acquisition": 240,
 
   "STUDY_AREA": {
     "grid_shape": {
