@@ -6,7 +6,7 @@
   "max_event_depth_acquisition":75.0,
   "preset_on_data_acquisition": 30,
   "offset_on_data_acquisition": 240,
-  
+
   "sigma_km": 5,
   "alpha": 0.0025,
   "FIX_GLITCHES_WITH_INTERPOLATION": false,
@@ -18,11 +18,11 @@
   "low_frequency":1,
   "high_frequency":35,
 
-  "STUDY_AREA": {
+  "EOD": {
     "grid_shape": {
-      "n": 64,
-      "m": 64,
-      "l": 5
+      "n_eod": 62,
+      "m_eod": 62,
+      "l_eod": 62
     },
     "corners": {
       "top_SW": {
@@ -56,6 +56,49 @@
       "bottom_NW": {
         "geo": [38.033533, 23.922818, 310.0],
         "local": [0.0, 310.0, 0.0]
+      }
+    }
+  },
+
+
+  "STUDY_AREA": {
+    "grid_shape": {
+      "n": 20,
+      "m": 20,
+      "l": 5
+    },
+    "corners": {
+      "top_SW": {
+        "geo": [36.160694, 25.112911, 0.0],
+        "local": [105.0, 105.0, 310.0]
+      },
+      "top_SE": {
+        "geo": [36.160694, 26.246332, 0.0],
+        "local": [205.0, 105.0, 310.0]
+      },
+      "top_NE": {
+        "geo": [37.074742, 26.246332, 0.0],
+        "local": [205.0, 205.0, 310.0]
+      },
+      "top_NW": {
+        "geo": [37.074742, 25.112911, 0.0],
+        "local": [105.0, 205.0, 310.0]
+      },
+      "bottom_SW": {
+        "geo": [36.160694, 25.112911, 285.0],
+        "local": [105.0, 105.0, 285.0]
+      },
+      "bottom_SE": {
+        "geo": [36.160694, 26.246332, 285.0],
+        "local": [205.0, 105.0, 285.0]
+      },
+      "bottom_NE": {
+        "geo": [37.074742, 26.246332, 285.0],
+        "local": [205.0, 205.0, 285.0]
+      },
+      "bottom_NW": {
+        "geo": [37.074742, 25.112911, 285.0],
+        "local": [105.0, 205.0, 285.0]
       }
     }
   }
