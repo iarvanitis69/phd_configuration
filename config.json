@@ -2,7 +2,7 @@
   "BASE_DIR": "/media/iarv/Samsung/Events",
   "LOGS_DIR": "/media/iarv/Samsung/Events/Logs",
 
-  "min_magnitude_acquisition": 3,
+  "min_magnitude_acquisition": 2.5,
   "max_event_depth_acquisition":75.0,
   "preset_on_data_acquisition": 30,
   "offset_on_data_acquisition": 240,
