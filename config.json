@@ -3,18 +3,18 @@
   "LOGS_DIR": "/media/iarv/Samsung/Events/Logs",
 
   "min_magnitude_acquisition": 2.5,
-  "max_event_depth_acquisition":75.0,
+  "max_event_depth_acquisition":310.0,
   "preset_on_data_acquisition": 30,
   "offset_on_data_acquisition": 240,
 
   "sigma_km": 5,
-  "alpha": 0.0025,
+  "alpha": 0.005,
   "FIX_GLITCHES_WITH_INTERPOLATION": true,
-  "minSnr":3,
+  "minSnr":5,
   "minEventDuration": 3,
   "maxEventDuration" : 150,
   "minDepth": 0,
-  "maxDepth":75,
+  "maxDepth":310,
   "low_frequency":1,
   "high_frequency":35,
 
