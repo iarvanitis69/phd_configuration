@@ -9,7 +9,7 @@
 
   "sigma_km": 5,
   "alpha": 0.005,
-  "FIX_GLITCHES_WITH_INTERPOLATION": true,
+  "FIX_GLITCHES_WITH_INTERPOLATION": false,
   "minSnr":5,
   "minEventDuration": 3,
   "maxEventDuration" : 150,
