@@ -8,7 +8,7 @@
   "offset_on_data_acquisition": 240,
 
   "sigma_km": 5,
-  "alpha": 0.005,
+  "alpha": 0.003,
   "FIX_GLITCHES_WITH_INTERPOLATION": false,
   "minSnr":3,
   "minEventDuration": 3,
