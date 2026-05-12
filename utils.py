@@ -532,6 +532,8 @@ def get_eod_grid_size():
 
 
 def get_qc_folder_name():
+    selected_voxels_top_k = config.get("selected_voxels_top_k")
+
     folder_name = (
         f"({get_eod_grid_size()})_"
         f"(minSnr_{config.get('minSnr')})"
@@ -542,7 +544,7 @@ def get_qc_folder_name():
         f"_(low_frequency_{config.get('low_frequency')})"
         f"_(high_frequency_{config.get('high_frequency')})"
         f"_(sigma_km_{config.get('sigma_km')})"
-        f"_(selected_voxels_top_k_{config.get('selected_voxels_top_k')})"
+        f"_(selected_voxels_top_k_{selected_voxels_top_k})"
     )
     return folder_name
 
