@@ -12,7 +12,7 @@
   "FIX_GLITCHES_WITH_INTERPOLATION": false,
 
   "transform_sigma_min_km": 2,
-  "transform_sigma_max_km": 35,
+  "transform_sigma_max_km": 45,
   "transform_boxcox_lambda_min": 0.0,
   "transform_boxcox_lambda_max": 1.0,
   "transform_boxcox_eps_min": 0.000001,
