@@ -25,7 +25,7 @@
   "transform_max_pct_small_j": 0.01,
   "transform_optuna_trials": 50,
   "transform_optuna_early_stop_patience": 10,
-  "transform_optuna_early_stop_min_delta": 0.0001,
+  "transform_optuna_early_stop_min_delta": 0.01,
 
   "minSnr":3,
   "minEventDuration": 3,
