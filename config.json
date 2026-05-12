@@ -12,7 +12,7 @@
   "FIX_GLITCHES_WITH_INTERPOLATION": false,
 
   "transform_sigma_min_km": 2,
-  "transform_sigma_max_km": 100,
+  "transform_sigma_max_km": 200,
   "transform_boxcox_lambda_min": 0.0,
   "transform_boxcox_lambda_max": 1.0,
   "transform_boxcox_eps_min": 0.000001,
@@ -23,7 +23,7 @@
   "transform_detj_min": 0.01,
   "transform_detj_max": 5.0,
   "transform_max_pct_small_j": 0.01,
-  "transform_optuna_trials": 100,
+  "transform_optuna_trials": 200,
   "transform_optuna_early_stop_patience": 10,
   "transform_optuna_early_stop_min_delta": 0.01,
 
