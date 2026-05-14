@@ -2,6 +2,7 @@ import os
 import json
 import sys
 from contextlib import contextmanager
+from datetime import datetime
 
 import numpy as np
 from obspy import UTCDateTime, Trace
@@ -10,6 +11,9 @@ from obspy.clients.syngine import Client
 from phd_configuration import config
 
 _SYNGINE_CLIENT = Client()
+REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+SESSION_INFO_FILE = "session_info.txt"
+_QC_FOLDER_NAME = None
 
 
 def load_json(path):
@@ -531,22 +535,86 @@ def get_eod_grid_size():
     return f"{int(grid['n_eod'])}x{int(grid['m_eod'])}x{int(grid['l_eod'])}"
 
 
-def get_qc_folder_name():
-    selected_voxels_top_k = config.get("selected_voxels_top_k")
+def get_session_info_path():
+    path = os.path.join(REPO_ROOT, SESSION_INFO_FILE)
+    if not os.path.exists(path):
+        open(path, "w", encoding="utf-8").close()
+    return path
 
-    folder_name = (
-        f"({get_eod_grid_size()})_"
-        f"(minSnr_{config.get('minSnr')})"
-        f"_(minEventDuration_{config.get('minEventDuration')})"
-        f"_(maxEventDuration_{config.get('maxEventDuration')})"
-        f"_(minDepth_{config.get('minDepth')})"
-        f"_(maxDepth_{config.get('maxDepth')})"
-        f"_(low_frequency_{config.get('low_frequency')})"
-        f"_(high_frequency_{config.get('high_frequency')})"
-        f"_(sigma_km_{config.get('sigma_km')})"
-        f"_(selected_voxels_top_k_{selected_voxels_top_k})"
-    )
+
+def make_qc_folder_name():
+    return datetime.now().strftime("%Y_%m_%d_%H:%M:%S")
+
+
+def write_session_folder_name(folder_name):
+    with open(get_session_info_path(), "w", encoding="utf-8") as f:
+        f.write(str(folder_name).strip())
+
+
+def read_session_folder_name():
+    with open(get_session_info_path(), "r", encoding="utf-8") as f:
+        folder_name = f.read().strip()
+    return folder_name or None
+
+
+def clear_session_info():
+    global _QC_FOLDER_NAME
+    _QC_FOLDER_NAME = None
+    with open(get_session_info_path(), "w", encoding="utf-8") as f:
+        f.write("")
+    config.activate(config.CONFIG_PATH)
+
+
+def start_new_qc_folder():
+    global _QC_FOLDER_NAME
+    folder_name = make_qc_folder_name()
+    folder_path = os.path.join(config.base_all().get("LOGS_DIR"), folder_name)
+    os.makedirs(folder_path, exist_ok=True)
+
+    run_config = dict(config.base_all())
+    run_config["RUN_OUTPUT_FOLDER_NAME"] = folder_name
+    run_config["RUN_OUTPUT_FOLDER_PATH"] = folder_path
+    run_config["RUN_CONFIG_PATH"] = os.path.join(folder_path, "config.json")
+    save_json(run_config["RUN_CONFIG_PATH"], run_config)
+    config.activate(run_config["RUN_CONFIG_PATH"])
+
+    _QC_FOLDER_NAME = folder_name
+    write_session_folder_name(folder_name)
     return folder_name
+
+
+def resume_qc_folder(folder_name):
+    global _QC_FOLDER_NAME
+    folder_path = os.path.join(config.base_all().get("LOGS_DIR"), folder_name)
+    run_config_path = os.path.join(folder_path, "config.json")
+    if not os.path.isdir(folder_path):
+        raise RuntimeError(f"Active voxel run folder from session_info.txt does not exist: {folder_path}")
+    if not os.path.exists(run_config_path):
+        raise RuntimeError(f"Active voxel run config does not exist: {run_config_path}")
+    config.activate(run_config_path)
+    _QC_FOLDER_NAME = folder_name
+    return folder_name
+
+
+def start_or_resume_qc_folder():
+    folder_name = read_session_folder_name()
+    if folder_name:
+        return resume_qc_folder(folder_name)
+    return start_new_qc_folder()
+
+
+def get_qc_folder_name():
+    global _QC_FOLDER_NAME
+    if _QC_FOLDER_NAME:
+        return _QC_FOLDER_NAME
+
+    folder_name = read_session_folder_name()
+    if folder_name is None:
+        raise RuntimeError(
+            "No active voxel run exists: session_info.txt is empty. "
+            "Run add_voxel_info.py / compute_voxel_density first."
+        )
+    return resume_qc_folder(folder_name)
 
 
 def get_qc_folder_path():
@@ -557,14 +625,20 @@ def get_qc_folder_path():
 
 
 def resolve_stage_output_dir(output_dir=None):
+    active_dir = get_qc_folder_path()
     if output_dir is None:
-        return get_qc_folder_path()
+        return active_dir
     if os.path.isabs(output_dir):
         resolved = os.path.abspath(output_dir)
     elif os.path.dirname(str(output_dir)):
         resolved = os.path.abspath(output_dir)
     else:
         resolved = os.path.join(config.get("LOGS_DIR"), str(output_dir))
+    if os.path.abspath(resolved) != os.path.abspath(active_dir):
+        raise RuntimeError(
+            "Stage output folder does not match active voxel run from session_info.txt: "
+            f"{resolved} != {active_dir}"
+        )
     os.makedirs(resolved, exist_ok=True)
     return resolved
 
