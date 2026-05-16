@@ -35,6 +35,23 @@ def get_stage_tracking_path(output_dir, stage_name):
     return os.path.join(output_dir, f"{stage_name}.json")
 
 
+def get_tracking_stage(data, stage_name):
+    if not isinstance(data, dict):
+        return None
+    if "stage" not in data:
+        return data
+    if data.get("stage") == stage_name:
+        return data
+
+    stages = data.get("stage", {})
+    if isinstance(stages, dict):
+        stage = stages.get(stage_name)
+        if isinstance(stage, dict):
+            return stage
+
+    return None
+
+
 def is_station_excluded(json_paths, event_name, station_name):
     """
     Επιστρέφει True αν σε οποιοδήποτε JSON αρχείο
@@ -583,6 +600,21 @@ def start_new_qc_folder():
     return folder_name
 
 
+def latest_qc_folder_name():
+    logs_dir = config.base_all().get("LOGS_DIR")
+    if not logs_dir or not os.path.isdir(logs_dir):
+        return None
+
+    candidates = []
+    for name in os.listdir(logs_dir):
+        folder_path = os.path.join(logs_dir, name)
+        run_config_path = os.path.join(folder_path, "config.json")
+        if os.path.isdir(folder_path) and os.path.exists(run_config_path):
+            candidates.append(name)
+
+    return sorted(candidates)[-1] if candidates else None
+
+
 def resume_qc_folder(folder_name):
     global _QC_FOLDER_NAME
     folder_path = os.path.join(config.base_all().get("LOGS_DIR"), folder_name)
@@ -641,6 +673,23 @@ def resolve_stage_output_dir(output_dir=None):
         )
     os.makedirs(resolved, exist_ok=True)
     return resolved
+
+
+def stage_tracking_complete(output_dir, stage_name):
+    path = get_stage_tracking_path(output_dir, stage_name)
+    data = load_json(path)
+    stage = get_tracking_stage(data, stage_name)
+    if not isinstance(stage, dict):
+        return False
+
+    required_keys = ("included", "excluded", "nof_included_channels", "nof_excluded_channels")
+    if not all(key in stage for key in required_keys):
+        return False
+
+    if not isinstance(stage.get("included"), dict) or not isinstance(stage.get("excluded"), dict):
+        return False
+
+    return stage.get("status") == "complete"
 
 
 # BOX / EOD basis + ZNE -> EOD rotation ----------------------------------------------
