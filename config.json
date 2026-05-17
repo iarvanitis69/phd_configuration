@@ -7,8 +7,7 @@
   "preset_on_data_acquisition": 30,
   "offset_on_data_acquisition": 240,
 
-  "sigma_km": 5,
-  "selected_voxels_min_distance_km": 5.0,
+  "cube_voxel_side_length" : 5,
   "FIX_GLITCHES_WITH_INTERPOLATION": false,
 
   "optuna_transform_trials": 80,
