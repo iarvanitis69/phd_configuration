@@ -14,6 +14,25 @@ SESSION_INFO_FILE = "session_info.txt"
 _QC_FOLDER_NAME = None
 
 
+def sanitize_event_name(name: str) -> str:
+    return str(name).replace("/", "_").replace("\\", "_").replace(":", "_")
+
+
+def event_stem(event_name: str) -> str:
+    stem = sanitize_event_name(event_name)
+    if stem.endswith(".json"):
+        return stem[:-5]
+    return stem
+
+
+def get_event_dir(output_dir: str, event_name: str) -> str:
+    return os.path.join(output_dir, event_stem(event_name))
+
+
+def get_event_json_path(output_dir: str, event_name: str) -> str:
+    return os.path.join(get_event_dir(output_dir, event_name), f"{event_stem(event_name)}.json")
+
+
 def load_json(path):
     if os.path.exists(path):
         try:
