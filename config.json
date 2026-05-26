@@ -17,7 +17,6 @@
   "maxDepth":310,
   "low_frequency":1,
   "high_frequency":50,
-  "minimum_distance_epicenter_station":3.250,
 
   "EOD": {
     "grid_shape": {

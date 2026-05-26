@@ -181,7 +181,7 @@ The base `config.json` currently contains:
 - Preprocessing/QC settings: `cube_voxel_side_length`,
   `FIX_GLITCHES_WITH_INTERPOLATION`, `minSnr`, `minEventDuration`,
   `maxEventDuration`, `minDepth`, `maxDepth`, `low_frequency`,
-  `high_frequency`, `minimum_distance_epicenter_station`
+  `high_frequency`
 - Geometry sections: `EOD`, `STUDY_AREA`
 
 When adding keys, keep the change backward-compatible where possible because
