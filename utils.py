@@ -3,6 +3,7 @@ import json
 import sys
 from contextlib import contextmanager
 from datetime import datetime
+from time import perf_counter
 
 import numpy as np
 from obspy import Trace
@@ -46,6 +47,36 @@ def load_json(path):
 def save_json(path, data):
     with open(path, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
+
+
+def _process_now_text():
+    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+
+@contextmanager
+def process_timer(script_name: str):
+    start_time = perf_counter()
+    print(f"[PY START] {script_name} at {_process_now_text()}", flush=True)
+    try:
+        yield
+    except Exception:
+        print(f"[PY FAILED] {script_name} at {_process_now_text()} after {perf_counter() - start_time:.2f}s", flush=True)
+        raise
+    print(f"[PY DONE] {script_name} at {_process_now_text()} after {perf_counter() - start_time:.2f}s", flush=True)
+
+
+def timed_process(script_name: str):
+    def decorator(func):
+        def wrapper(*args, **kwargs):
+            with process_timer(script_name):
+                return func(*args, **kwargs)
+
+        wrapper.__name__ = getattr(func, "__name__", "wrapper")
+        wrapper.__doc__ = getattr(func, "__doc__", None)
+        wrapper.__module__ = getattr(func, "__module__", None)
+        return wrapper
+
+    return decorator
 
 
 def get_stage_tracking_path(output_dir, stage_name):
