@@ -9,6 +9,7 @@
 
   "cube_voxel_side_length" : 5,
   "FIX_GLITCHES_WITH_INTERPOLATION": false,
+  "must_contain_all_3_channels": true,
 
   "minSnr":3,
   "minEventDuration": 3,
