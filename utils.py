@@ -2,6 +2,7 @@ import os
 import json
 import sys
 from contextlib import contextmanager
+from typing import Any, Mapping
 from datetime import datetime
 from time import perf_counter
 
@@ -607,3 +608,187 @@ def tee_stdout(logfile_path):
     finally:
         sys.stdout = original_stdout
         logger.close()
+
+
+# Fourier NPZ helpers ---------------------------------------------------------------
+
+FFT_BASE_FIELDS = ("freqs", "real", "imag", "magnitude", "phase", "sampling_rate", "original_n_samples")
+FFT_AC_FIELDS = FFT_BASE_FIELDS + ("correction_filter",)
+
+
+def fft_payload_from_signal(values: np.ndarray, sampling_rate: float, window_seconds: float) -> dict[str, np.ndarray]:
+    sr = float(sampling_rate)
+    if not np.isfinite(sr) or sr <= 0.0:
+        raise ValueError(f"invalid_sampling_rate:{sampling_rate}")
+    npts = max(2, int(round(float(window_seconds) * sr)))
+    if npts % 2:
+        npts += 1
+    window = np.zeros(npts, dtype=np.float32)
+    source = np.asarray(values, dtype=np.float32).reshape(-1)
+    n = min(npts, int(source.size))
+    if n > 0:
+        window[:n] = source[:n]
+    spectrum = np.fft.rfft(window)
+    freqs = np.fft.rfftfreq(npts, d=1.0 / sr)
+    return fft_payload_from_complex(spectrum, freqs, sr, npts)
+
+
+def fft_payload_from_complex(
+    spectrum: np.ndarray,
+    freqs: np.ndarray,
+    sampling_rate: float,
+    original_n_samples: int,
+    correction_filter: np.ndarray | None = None,
+) -> dict[str, np.ndarray]:
+    complex_values = np.asarray(spectrum, dtype=np.complex128).reshape(-1)
+    freq_values = np.asarray(freqs, dtype=np.float64).reshape(-1)
+    if complex_values.shape != freq_values.shape:
+        raise ValueError("fft_complex_frequency_shape_mismatch")
+    sr = float(sampling_rate)
+    n_samples = int(original_n_samples)
+    if not np.isfinite(sr) or sr <= 0.0:
+        raise ValueError("invalid_sampling_rate")
+    if n_samples <= 0:
+        raise ValueError("invalid_original_n_samples")
+
+    payload: dict[str, np.ndarray] = {
+        "freqs": freq_values.astype(np.float32),
+        "real": complex_values.real.astype(np.float32),
+        "imag": complex_values.imag.astype(np.float32),
+        "magnitude": np.abs(complex_values).astype(np.float32),
+        "phase": np.angle(complex_values).astype(np.float32),
+        "sampling_rate": np.asarray(sr, dtype=np.float32),
+        "original_n_samples": np.asarray(n_samples, dtype=np.int64),
+    }
+    if correction_filter is not None:
+        filt = np.asarray(correction_filter, dtype=np.float32).reshape(-1)
+        if filt.shape != freq_values.shape:
+            raise ValueError("fft_correction_filter_shape_mismatch")
+        payload["correction_filter"] = filt
+    return payload
+
+
+def _validate_fft_payload(payload: Mapping[str, Any], require_correction_filter: bool = False) -> dict[str, np.ndarray]:
+    required = list(FFT_BASE_FIELDS)
+    if require_correction_filter:
+        required.append("correction_filter")
+    missing = [field for field in required if field not in payload]
+    if missing:
+        raise ValueError(f"fft_npz_missing_fields:{','.join(missing)}")
+
+    freqs = np.asarray(payload["freqs"], dtype=np.float32).reshape(-1)
+    if freqs.size == 0:
+        raise ValueError("empty_frequency_axis")
+    arrays: dict[str, np.ndarray] = {"freqs": freqs}
+    for field in ("real", "imag", "magnitude", "phase"):
+        values = np.asarray(payload[field], dtype=np.float32).reshape(-1)
+        if values.shape != freqs.shape:
+            raise ValueError(f"fft_{field}_shape_mismatch")
+        arrays[field] = values
+    if "correction_filter" in payload:
+        filt = np.asarray(payload["correction_filter"], dtype=np.float32).reshape(-1)
+        if filt.shape != freqs.shape:
+            raise ValueError("fft_correction_filter_shape_mismatch")
+        arrays["correction_filter"] = filt
+
+    sampling_rate = float(np.asarray(payload["sampling_rate"]))
+    original_n_samples = int(np.asarray(payload["original_n_samples"]))
+    if not np.isfinite(sampling_rate) or sampling_rate <= 0.0:
+        raise ValueError("invalid_sampling_rate")
+    if original_n_samples <= 0:
+        raise ValueError("invalid_original_n_samples")
+    arrays["sampling_rate"] = np.asarray(sampling_rate, dtype=np.float32)
+    arrays["original_n_samples"] = np.asarray(original_n_samples, dtype=np.int64)
+    return arrays
+
+
+def write_fft_npz(path: str, payload: Mapping[str, Any]) -> None:
+    output_path = os.path.abspath(str(path))
+    arrays = _validate_fft_payload(payload, require_correction_filter=False)
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    tmp_path = output_path + ".tmp.npz"
+    np.savez_compressed(tmp_path, **arrays)
+    os.replace(tmp_path, output_path)
+
+
+def read_fft_npz(path: str, require_correction_filter: bool = False) -> dict[str, np.ndarray]:
+    input_path = os.path.abspath(str(path))
+    with np.load(input_path, allow_pickle=False) as data:
+        payload = {field: np.asarray(data[field]) for field in data.files}
+    return _validate_fft_payload(payload, require_correction_filter=require_correction_filter)
+
+
+def fft_npz_file_valid(path: Any, expected_suffix: str, require_correction_filter: bool = False) -> bool:
+    if not isinstance(path, str) or not os.path.basename(path).lower().endswith(expected_suffix.lower()):
+        return False
+    if not os.path.exists(path):
+        return False
+    try:
+        read_fft_npz(path, require_correction_filter=require_correction_filter)
+    except Exception:
+        return False
+    return True
+
+
+def fft_plot_arrays(
+    path: str,
+    value: str = "magnitude",
+    energy: bool = False,
+    require_correction_filter: bool = False,
+) -> tuple[np.ndarray, np.ndarray, str]:
+    payload = read_fft_npz(path, require_correction_filter=require_correction_filter)
+    freqs = np.asarray(payload["freqs"], dtype=np.float64).reshape(-1)
+    if energy:
+        magnitude = np.asarray(payload["magnitude"], dtype=np.float64).reshape(-1)
+        return freqs, magnitude * magnitude, "Energy (|U(f)|^2)"
+
+    field = str(value).strip().lower()
+    if field not in payload:
+        available = ", ".join(sorted(k for k, v in payload.items() if np.asarray(v).ndim > 0))
+        raise ValueError(f"unknown_fft_plot_value:{field}; available={available}")
+    values = np.asarray(payload[field], dtype=np.float64).reshape(-1)
+    if values.shape != freqs.shape:
+        raise ValueError(f"fft_plot_value_shape_mismatch:{field}")
+    return freqs, values, field
+
+
+def plot_fft_npz_spectrum(
+    path: str,
+    output_path: str | None = None,
+    value: str = "magnitude",
+    energy: bool = False,
+    require_correction_filter: bool = False,
+    title: str | None = None,
+    xlim_hz: float | None = None,
+) -> str:
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    input_path = os.path.abspath(str(path))
+    freqs, y_values, ylabel = fft_plot_arrays(
+        input_path,
+        value=value,
+        energy=energy,
+        require_correction_filter=require_correction_filter,
+    )
+    if output_path is None:
+        suffix = "energy" if energy else str(value).strip().lower()
+        output_path = os.path.splitext(input_path)[0] + f"_{suffix}_spectrum.png"
+    output_path = os.path.abspath(str(output_path))
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+
+    fig, ax = plt.subplots(figsize=(10, 5), constrained_layout=True)
+    ax.plot(freqs, y_values, linewidth=1.2)
+    ax.set_xlabel("Frequency (Hz)")
+    ax.set_ylabel(ylabel)
+    ax.set_title(title or os.path.basename(input_path))
+    ax.grid(True, alpha=0.3)
+    if xlim_hz is not None:
+        limit = float(xlim_hz)
+        if np.isfinite(limit) and limit > 0.0:
+            ax.set_xlim(0.0, limit)
+    fig.savefig(output_path, dpi=150)
+    plt.close(fig)
+    return output_path
