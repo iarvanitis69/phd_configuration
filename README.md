@@ -13,7 +13,7 @@ keeping separate local copies.
 `phd_configuration` provides:
 
 - A central `config.json` with data paths, acquisition thresholds,
-  preprocessing parameters, EOD geometry, and study-area geometry.
+  preprocessing parameters, and `STUDY_AREA` geometry.
 - A runtime config loader in `config.py`.
 - Shared utility functions in `utils.py` for JSON I/O, QC/run folders,
   stage tracking, coordinate conversion, ZNE-to-BOX rotation, and logging.
@@ -137,25 +137,25 @@ The intended pipeline behavior is:
 
 ## Geometry helpers
 
-The coordinate helpers use the `EOD` section of `config.json`.
+The coordinate helpers use the `STUDY_AREA` section of `config.json`.
 
 Important conventions:
 
 - Geographic coordinates are `(latitude, longitude, depth_km)`.
 - `depth_km` is positive downward.
-- Local BOX/EOD `z` increases upward.
-- The EOD origin is `bottom_SW`.
-- The local X, Y, and Z axes are defined from the EOD reference corners.
+- Local BOX/`STUDY_AREA` `z` increases upward.
+- The `STUDY_AREA` origin is `bottom_SW`.
+- The local X, Y, and Z axes are defined from the `STUDY_AREA` reference corners.
 
 Common helpers:
 
 | Function | Description |
 | --- | --- |
-| `geo_to_cartesian_wrapper(lat, lon, depth)` | Convert geographic coordinates to local Cartesian coordinates using the configured EOD origin. |
+| `geo_to_cartesian_wrapper(lat, lon, depth)` | Convert geographic coordinates to local Cartesian coordinates using the configured `STUDY_AREA` origin. |
 | `compute_distance_and_angles_geo(...)` | Compute distance, azimuth, and polar angle between two geographic points. |
 | `build_box_basis_from_config()` | Build ECEF-to-BOX and BOX-to-ECEF rotation matrices from `config.json`. |
-| `rotate_vector_zne_to_box(...)` | Rotate one ZNE vector into BOX/EOD coordinates. |
-| `rotate_vector_series_zne_to_box(...)` | Rotate vector arrays from ZNE into BOX/EOD coordinates. |
+| `rotate_vector_zne_to_box(...)` | Rotate one ZNE vector into BOX/`STUDY_AREA` coordinates. |
+| `rotate_vector_series_zne_to_box(...)` | Rotate vector arrays from ZNE into BOX/`STUDY_AREA` coordinates. |
 | `transform_traces_zne_to_box(...)` | Convert ObsPy Z/N/E traces into X/Y/Z BOX traces. |
 
 ## Logging helpers
@@ -182,7 +182,7 @@ The base `config.json` currently contains:
   `FIX_GLITCHES_WITH_INTERPOLATION`, `minSnr`, `minEventDuration`,
   `maxEventDuration`, `minDepth`, `maxDepth`, `low_frequency`,
   `high_frequency`
-- Geometry sections: `EOD`, `STUDY_AREA`
+- Geometry section: `STUDY_AREA`
 
 When adding keys, keep the change backward-compatible where possible because
 all parent projects may read this file through the same submodule.
