@@ -1,6 +1,8 @@
 import os
 import json
 import sys
+import inspect
+import re
 from contextlib import contextmanager
 from typing import Any, Mapping
 from datetime import datetime
@@ -14,6 +16,8 @@ from phd_configuration import config
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SESSION_INFO_FILE = "session_info.txt"
 _QC_FOLDER_NAME = None
+_LINE_PREFIX_RE = re.compile(r"^\[(\d+)/(\d+)\]\s+\S+(?:\.py)?(?:\s|$)")
+_EMBEDDED_LINE_PREFIX_RE = re.compile(r"\[(\d+/\d+)\]\s+(\S+(?:\.py)?):?\s*")
 
 
 def sanitize_event_name(name: str) -> str:
@@ -57,13 +61,13 @@ def _process_now_text():
 @contextmanager
 def process_timer(script_name: str):
     start_time = perf_counter()
-    print(f"[PY START] {script_name} at {_process_now_text()}", flush=True)
+    print(f"[1/1] {script_name} [PY START] {script_name} at {_process_now_text()}", flush=True)
     try:
         yield
     except Exception:
-        print(f"[PY FAILED] {script_name} at {_process_now_text()} after {perf_counter() - start_time:.2f}s", flush=True)
+        print(f"[1/1] {script_name} [PY FAILED] {script_name} at {_process_now_text()} after {perf_counter() - start_time:.2f}s", flush=True)
         raise
-    print(f"[PY DONE] {script_name} at {_process_now_text()} after {perf_counter() - start_time:.2f}s", flush=True)
+    print(f"[1/1] {script_name} [PY DONE] {script_name} at {_process_now_text()} after {perf_counter() - start_time:.2f}s", flush=True)
 
 
 def timed_process(script_name: str):
@@ -101,16 +105,18 @@ def get_tracking_stage(data, stage_name):
     return None
 
 
-# Coordination conversions -----------------------------------------------------------
+# Coordinate conversions -------------------------------------------------------------
 
 def _get_reference_points():
-    eod = config.get("EOD")
-    corners = eod["corners"]
+    study_area = config.get("STUDY_AREA")
+    if not isinstance(study_area, dict):
+        raise ValueError("STUDY_AREA is missing from config.")
+    corners = study_area["corners"]
 
     required = ["bottom_SW", "bottom_SE", "bottom_NW", "top_SW"]
     for name in required:
         if name not in corners:
-            raise ValueError(f"Λείπει το corner '{name}' από το EOD.")
+            raise ValueError(f"Missing STUDY_AREA corner '{name}'.")
 
     return (
         corners["bottom_SW"],  # origin
@@ -164,7 +170,7 @@ def geo_to_cartesian(
     lat_point, lon_point, depth_point
 ):
     """
-    Μετατροπή geo -> local Cartesian με origin το bottom_SW του EOD.
+    Convert geo -> local Cartesian in the coordinate system defined by STUDY_AREA.
 
     Σύμβαση:
       - depth_km θετικό προς τα κάτω
@@ -331,6 +337,7 @@ def resume_qc_folder(folder_name):
         raise RuntimeError(f"Active voxel run config does not exist: {run_config_path}")
     config.activate(run_config_path)
     _QC_FOLDER_NAME = folder_name
+    write_session_folder_name(folder_name)
     return folder_name
 
 
@@ -363,15 +370,25 @@ def get_qc_folder_path():
 
 
 def resolve_stage_output_dir(output_dir=None):
-    active_dir = get_qc_folder_path()
     if output_dir is None:
-        return active_dir
+        return get_qc_folder_path()
+
     if os.path.isabs(output_dir):
         resolved = os.path.abspath(output_dir)
     elif os.path.dirname(str(output_dir)):
         resolved = os.path.abspath(output_dir)
     else:
         resolved = os.path.join(config.get("LOGS_DIR"), str(output_dir))
+
+    logs_dir = os.path.abspath(config.base_all().get("LOGS_DIR"))
+    folder_name = os.path.basename(os.path.abspath(resolved))
+    run_config_path = os.path.join(resolved, "config.json")
+    if os.path.exists(run_config_path) and os.path.dirname(os.path.abspath(resolved)) == logs_dir:
+        resume_qc_folder(folder_name)
+        os.makedirs(resolved, exist_ok=True)
+        return resolved
+
+    active_dir = get_qc_folder_path()
     if os.path.abspath(resolved) != os.path.abspath(active_dir):
         raise RuntimeError(
             "Stage output folder does not match active voxel run from session_info.txt: "
@@ -398,21 +415,21 @@ def stage_tracking_complete(output_dir, stage_name):
     return stage.get("status") == "complete"
 
 
-# BOX / EOD basis + ZNE -> EOD rotation ----------------------------------------------
+# STUDY_AREA basis + ZNE -> STUDY_AREA rotation --------------------------------------
 
 def build_box_basis_from_corners(origin_geo, x_geo, y_geo, z_geo):
     """
-    Χτίζει basis του EOD/BOX στο ECEF.
+    Build the STUDY_AREA basis in ECEF.
 
     Είσοδος:
         origin_geo = (lat, lon, depth)
-        x_geo      = geo σημείο πάνω στον άξονα X του BOX
-        y_geo      = geo σημείο πάνω στον άξονα Y του BOX
-        z_geo      = geo σημείο πάνω στον άξονα Z του BOX
+        x_geo      = geo point on the STUDY_AREA X axis
+        y_geo      = geo point on the STUDY_AREA Y axis
+        z_geo      = geo point on the STUDY_AREA Z axis
 
     Έξοδος:
-        R_ecef_to_box : 3x3 πίνακας που παίρνει vector στο ECEF και το γράφει σε BOX
-        R_box_to_ecef : 3x3 πίνακας που παίρνει vector στο BOX και το γράφει σε ECEF
+        R_ecef_to_box : 3x3 matrix that maps an ECEF vector to STUDY_AREA coordinates
+        R_box_to_ecef : 3x3 matrix that maps a STUDY_AREA vector to ECEF
     """
     O = _geo_to_ecef(*origin_geo)
     Px = _geo_to_ecef(*x_geo)
@@ -497,7 +514,7 @@ def build_local_zne_basis_in_ecef(lat_deg, lon_deg):
 
 def rotate_vector_zne_to_box(z, n, e, lat_deg, lon_deg, R_ecef_to_box):
     """
-    Περιστρέφει ένα διάνυσμα από τοπικό ZNE -> BOX/EOD.
+    Rotate a vector from local ZNE to STUDY_AREA coordinates.
     """
     z_hat, n_hat, e_hat = build_local_zne_basis_in_ecef(lat_deg, lon_deg)
 
@@ -509,7 +526,7 @@ def rotate_vector_zne_to_box(z, n, e, lat_deg, lon_deg, R_ecef_to_box):
 
 def rotate_vector_series_zne_to_box(vector_z, vector_n, vector_e, lat_deg, lon_deg, R_ecef_to_box):
     """
-    Περιστρέφει σειρά διανυσμάτων από ZNE -> BOX/EOD.
+    Rotate a vector series from ZNE to STUDY_AREA coordinates.
     """
     vector_z = np.asarray(vector_z, dtype=float)
     vector_n = np.asarray(vector_n, dtype=float)
@@ -574,15 +591,118 @@ def transform_traces_zne_to_box(trZ, trN, trE, station_lat, station_lon, R_ecef_
     return trX, trY, trZbox
 
 
-class TeeLogger:
-    def __init__(self, logfile_path):
-        self.terminal = sys.stdout
-        self.logfile_path = os.path.abspath(logfile_path)
-        self.logfile = open(logfile_path, "a", encoding="utf-8")
+def _caller_script_name(default: str = "process.py") -> str:
+    this_file = os.path.abspath(__file__)
+    for frame in inspect.stack()[2:]:
+        path = os.path.abspath(frame.filename)
+        try:
+            in_repo = os.path.commonpath([REPO_ROOT, path]) == REPO_ROOT
+        except ValueError:
+            in_repo = False
+        if (
+            path != this_file
+            and path.endswith(".py")
+            and in_repo
+        ):
+            return os.path.basename(path)
+    return default
+
+
+def _script_name_from_logfile(logfile_path: str | None, default: str = "process.py") -> str:
+    if logfile_path:
+        base = os.path.basename(str(logfile_path))
+        stem, _ = os.path.splitext(base)
+        if stem:
+            return f"{stem}.py"
+    return default
+
+
+class LinePrefixWriter:
+    def __init__(self, stream, script_name: str | None = None):
+        self.stream = stream
+        self.script_name = script_name or _caller_script_name()
+        self._at_line_start = True
+
+    @property
+    def encoding(self):
+        return getattr(self.stream, "encoding", "utf-8")
+
+    def __getattr__(self, name):
+        return getattr(self.stream, name)
+
+    def _prefix(self, line: str) -> str:
+        if _LINE_PREFIX_RE.match(line):
+            return line
+        match = _EMBEDDED_LINE_PREFIX_RE.search(line)
+        if match:
+            before = line[: match.start()]
+            after = line[match.end() :]
+            cleaned = f"{before}{after}".lstrip()
+            return f"[{match.group(1)}] {match.group(2)} {cleaned}"
+        return f"[0/0] {self.script_name} {line}"
 
     def write(self, message):
-        self.terminal.write(message)
-        self.logfile.write(message)
+        text = str(message)
+        if not text:
+            return 0
+        parts = text.splitlines(keepends=True)
+        for part in parts:
+            if self._at_line_start:
+                part = self._prefix(part)
+            self.stream.write(part)
+            self._at_line_start = part.endswith("\n")
+        return len(text)
+
+    def flush(self):
+        self.stream.flush()
+
+    def close(self):
+        close = getattr(self.stream, "close", None)
+        if callable(close):
+            close()
+
+
+def install_stdout_prefix(script_name: str | None = None):
+    if isinstance(sys.stdout, LinePrefixWriter):
+        return sys.stdout
+    sys.stdout = LinePrefixWriter(sys.stdout, script_name or _caller_script_name())
+    return sys.stdout
+
+
+class TeeLogger:
+    def __init__(self, logfile_path, script_name: str | None = None):
+        self.terminal = sys.stdout
+        self.script_name = script_name or _caller_script_name(_script_name_from_logfile(logfile_path))
+        self.logfile_path = os.path.abspath(logfile_path)
+        self.logfile = open(logfile_path, "a", encoding="utf-8")
+        self._at_line_start = True
+
+    @property
+    def encoding(self):
+        return getattr(self.terminal, "encoding", "utf-8")
+
+    def _prefix(self, line: str) -> str:
+        if _LINE_PREFIX_RE.match(line):
+            return line
+        match = _EMBEDDED_LINE_PREFIX_RE.search(line)
+        if match:
+            before = line[: match.start()]
+            after = line[match.end() :]
+            cleaned = f"{before}{after}".lstrip()
+            return f"[{match.group(1)}] {match.group(2)} {cleaned}"
+        return f"[0/0] {self.script_name} {line}"
+
+    def write(self, message):
+        text = str(message)
+        if not text:
+            return 0
+        for part in text.splitlines(keepends=True):
+            if self._at_line_start:
+                part = self._prefix(part)
+            self.terminal.write(part)
+            self.logfile.write(part)
+            self._at_line_start = part.endswith("\n")
+        return len(text)
 
     def flush(self):
         self.terminal.flush()
