@@ -670,9 +670,9 @@ def install_stdout_prefix(script_name: str | None = None):
 
 
 class TeeLogger:
-    def __init__(self, logfile_path, script_name: str | None = None):
+    def __init__(self, logfile_path, script_name: str | None | bool = None):
         self.terminal = sys.stdout
-        self.script_name = script_name or _caller_script_name(_script_name_from_logfile(logfile_path))
+        self.script_name = None if script_name is False else script_name or _caller_script_name(_script_name_from_logfile(logfile_path))
         self.logfile_path = os.path.abspath(logfile_path)
         self.logfile = open(logfile_path, "a", encoding="utf-8")
         self._at_line_start = True
@@ -682,6 +682,8 @@ class TeeLogger:
         return getattr(self.terminal, "encoding", "utf-8")
 
     def _prefix(self, line: str) -> str:
+        if self.script_name is None:
+            return line
         if _LINE_PREFIX_RE.match(line):
             return line
         match = _EMBEDDED_LINE_PREFIX_RE.search(line)
@@ -713,7 +715,7 @@ class TeeLogger:
 
 
 @contextmanager
-def tee_stdout(logfile_path):
+def tee_stdout(logfile_path, script_name: str | None | bool = None):
     logfile_path = os.path.abspath(logfile_path)
     if getattr(sys.stdout, "logfile_path", None) == logfile_path:
         yield
@@ -721,7 +723,7 @@ def tee_stdout(logfile_path):
 
     os.makedirs(os.path.dirname(logfile_path) or ".", exist_ok=True)
     original_stdout = sys.stdout
-    logger = TeeLogger(logfile_path)
+    logger = TeeLogger(logfile_path, script_name=script_name)
     sys.stdout = logger
     try:
         yield
