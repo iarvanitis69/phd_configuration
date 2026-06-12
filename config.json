@@ -17,6 +17,7 @@
   "high_frequency": 50,
   "resampling": true,
   "resampling_rate": 70,
+  "STF_creation_method": "PGaussian",
   "STUDY_AREA": {
     "grid_shape": {
       "n": 100,
