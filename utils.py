@@ -1,7 +1,8 @@
 import os
-import json
+import station_manifest as manifest_json
 import sys
 import inspect
+import tempfile
 import re
 from contextlib import contextmanager
 from typing import Any, Mapping
@@ -43,7 +44,7 @@ def load_json(path):
     if os.path.exists(path):
         try:
             with open(path, "r", encoding="utf-8") as f:
-                return json.load(f)
+                return manifest_json.load(f)
         except Exception:
             return {}
     return {}
@@ -51,7 +52,7 @@ def load_json(path):
 
 def save_json(path, data):
     with open(path, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=2, ensure_ascii=False)
+        manifest_json.dump(data, f, indent=2, ensure_ascii=False)
 
 
 def _process_now_text():
@@ -774,12 +775,12 @@ def fft_payload_from_complex(
         raise ValueError("invalid_original_n_samples")
 
     payload: dict[str, np.ndarray] = {
-        "freqs": freq_values.astype(np.float32),
-        "real": complex_values.real.astype(np.float32),
-        "imag": complex_values.imag.astype(np.float32),
-        "magnitude": np.abs(complex_values).astype(np.float32),
-        "phase": np.angle(complex_values).astype(np.float32),
-        "sampling_rate": np.asarray(sr, dtype=np.float32),
+        "freqs": freq_values.astype(np.float64),
+        "real": complex_values.real.astype(np.float64),
+        "imag": complex_values.imag.astype(np.float64),
+        "magnitude": np.abs(complex_values).astype(np.float64),
+        "phase": np.angle(complex_values).astype(np.float64),
+        "sampling_rate": np.asarray(sr, dtype=np.float64),
         "original_n_samples": np.asarray(n_samples, dtype=np.int64),
     }
     if correction_filter is not None:
@@ -798,12 +799,12 @@ def _validate_fft_payload(payload: Mapping[str, Any], require_correction_filter:
     if missing:
         raise ValueError(f"fft_npz_missing_fields:{','.join(missing)}")
 
-    freqs = np.asarray(payload["freqs"], dtype=np.float32).reshape(-1)
+    freqs = np.asarray(payload["freqs"], dtype=np.float64).reshape(-1)
     if freqs.size == 0:
         raise ValueError("empty_frequency_axis")
     arrays: dict[str, np.ndarray] = {"freqs": freqs}
     for field in ("real", "imag", "magnitude", "phase"):
-        values = np.asarray(payload[field], dtype=np.float32).reshape(-1)
+        values = np.asarray(payload[field], dtype=np.float64).reshape(-1)
         if values.shape != freqs.shape:
             raise ValueError(f"fft_{field}_shape_mismatch")
         arrays[field] = values
@@ -819,8 +820,22 @@ def _validate_fft_payload(payload: Mapping[str, Any], require_correction_filter:
         raise ValueError("invalid_sampling_rate")
     if original_n_samples <= 0:
         raise ValueError("invalid_original_n_samples")
-    arrays["sampling_rate"] = np.asarray(sampling_rate, dtype=np.float32)
+    arrays["sampling_rate"] = np.asarray(sampling_rate, dtype=np.float64)
     arrays["original_n_samples"] = np.asarray(original_n_samples, dtype=np.int64)
+    for field, dtype in {
+        'fft_phase_rule': str, 'time_reference_kind': str,
+        'time_reference_ns': np.int64, 'trace_starttime_ns': np.int64,
+        'phase_offset_seconds': np.float64, 'normalization_rule': str,
+        'normalization_scale': np.float64, 'amplitude_scale_to_input': np.float64,
+    }.items():
+        if field in payload:
+            value = np.asarray(payload[field], dtype=dtype)
+            if value.shape != ():
+                raise ValueError(f'fft_metadata_must_be_scalar:{field}')
+            if field in ('normalization_scale', 'amplitude_scale_to_input') and (
+                    not np.isfinite(float(value)) or float(value) <= 0):
+                raise ValueError(f'invalid_fft_amplitude_scale:{field}')
+            arrays[field] = value
     return arrays
 
 
@@ -833,10 +848,46 @@ def write_fft_npz(path: str, payload: Mapping[str, Any]) -> None:
     os.replace(tmp_path, output_path)
 
 
-def read_fft_npz(path: str, require_correction_filter: bool = False) -> dict[str, np.ndarray]:
+def write_fft_bundle_npz(path: str, channels: Mapping[str, Mapping[str, Any]]) -> None:
+    """Store independent channel frequency axes and spectra without pickle."""
+    if not channels or set(channels) - {"HHX", "HHY", "HHZ", "HHL", "HHQ", "HHT"}:
+        raise ValueError("invalid_fft_bundle_channels")
+    basis = "lqt" if set(channels).intersection({"HHL", "HHQ", "HHT"}) else "xyz"
+    from component_frame import channels_for
+    channels_for(channels)  # Reject mixed coordinate frames.
+    arrays = {"channels": np.asarray(list(channels)), "waveform_layout": np.asarray(basis+"_fft_v1")}
+    for channel, payload in channels.items():
+        arrays.update({f"{channel}_{field}": value for field, value in _validate_fft_payload(payload).items()})
+    output_path = os.path.abspath(str(path))
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    handle, temporary = tempfile.mkstemp(suffix=".npz", dir=os.path.dirname(output_path))
+    os.close(handle)
+    try:
+        np.savez_compressed(temporary, **arrays)
+        os.replace(temporary, output_path)
+    finally:
+        if os.path.exists(temporary):
+            os.remove(temporary)
+
+
+def fft_npz_channels(path: str) -> list[str]:
+    with np.load(path, allow_pickle=False) as data:
+        return list(map(str, data["channels"])) if "channels" in data else []
+
+
+def read_fft_npz(path: str, require_correction_filter: bool = False, channel: str | None = None) -> dict[str, np.ndarray]:
     input_path = os.path.abspath(str(path))
     with np.load(input_path, allow_pickle=False) as data:
-        payload = {field: np.asarray(data[field]) for field in data.files}
+        if "channels" in data:
+            channels = list(map(str, data["channels"]))
+            if channel is None and len(channels) == 1:
+                channel = channels[0]
+            if channel not in channels:
+                raise ValueError(f"fft_channel_required_or_missing:{channel}; available={channels}")
+            prefix = channel + "_"
+            payload = {field[len(prefix):]: np.asarray(data[field]) for field in data.files if field.startswith(prefix)}
+        else:
+            payload = {field: np.asarray(data[field]) for field in data.files}
     return _validate_fft_payload(payload, require_correction_filter=require_correction_filter)
 
 
@@ -846,7 +897,8 @@ def fft_npz_file_valid(path: Any, expected_suffix: str, require_correction_filte
     if not os.path.exists(path):
         return False
     try:
-        read_fft_npz(path, require_correction_filter=require_correction_filter)
+        for channel in fft_npz_channels(path) or [None]:
+            read_fft_npz(path, require_correction_filter=require_correction_filter, channel=channel)
     except Exception:
         return False
     return True
@@ -857,8 +909,9 @@ def fft_plot_arrays(
     value: str = "magnitude",
     energy: bool = False,
     require_correction_filter: bool = False,
+    channel: str | None = None,
 ) -> tuple[np.ndarray, np.ndarray, str]:
-    payload = read_fft_npz(path, require_correction_filter=require_correction_filter)
+    payload = read_fft_npz(path, require_correction_filter=require_correction_filter, channel=channel)
     freqs = np.asarray(payload["freqs"], dtype=np.float64).reshape(-1)
     if energy:
         magnitude = np.asarray(payload["magnitude"], dtype=np.float64).reshape(-1)
@@ -882,6 +935,7 @@ def plot_fft_npz_spectrum(
     require_correction_filter: bool = False,
     title: str | None = None,
     xlim_hz: float | None = None,
+    channel: str | None = None,
 ) -> str:
     import matplotlib
 
@@ -894,9 +948,10 @@ def plot_fft_npz_spectrum(
         value=value,
         energy=energy,
         require_correction_filter=require_correction_filter,
+        channel=channel,
     )
     if output_path is None:
-        suffix = "energy" if energy else str(value).strip().lower()
+        suffix = (channel + "_" if channel else "") + ("energy" if energy else str(value).strip().lower())
         output_path = os.path.splitext(input_path)[0] + f"_{suffix}_spectrum.png"
     output_path = os.path.abspath(str(output_path))
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
