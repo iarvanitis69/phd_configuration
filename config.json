@@ -29,7 +29,6 @@
   "station_p_noise_seconds": 2.0,
   "station_p_noise_guard_seconds": 0.1,
   "station_p_signal_seconds": 0.5,
-  "station_p_min_rms_snr": 3.0,
   "station_p_min_velocity_km_s": 3.0,
   "station_p_max_velocity_km_s": 8.0,
   "station_p_travel_margin_seconds": 2.0,

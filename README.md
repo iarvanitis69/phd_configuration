@@ -168,6 +168,10 @@ loader does not hardcode those keys. Shared helpers read the keys required by
 their documented operations, such as `LOGS_DIR` for paths and `STUDY_AREA` for
 geometry.
 
+`station_p_min_rms_snr` has been removed: preprocessing's initial P picker records
+RMS ratios only as diagnostics and ignores that obsolete key in older snapshots.
+The later LQT SNR stage uses `minSnr` and the active L-only selection policy.
+
 Preprocessing snapshots the shared configuration for new runs. Existing runs
 retain their own saved settings until explicitly changed or a new run is started.
 Session discovery and snapshot selection belong exclusively to the preprocessing
