@@ -1,5 +1,5 @@
 import os
-import station_manifest as manifest_json
+import json
 import sys
 import inspect
 import tempfile
@@ -12,11 +12,9 @@ from time import perf_counter
 import numpy as np
 from obspy import Trace
 
-from phd_configuration import config
+from phd_configuration import config_loader as config
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-SESSION_INFO_FILE = "session_info.txt"
-_QC_FOLDER_NAME = None
 _LINE_PREFIX_RE = re.compile(r"^\[(\d+)/(\d+)\]\s+\S+(?:\.py)?(?:\s|$)")
 _EMBEDDED_LINE_PREFIX_RE = re.compile(r"\[(\d+/\d+)\]\s+(\S+(?:\.py)?):?\s*")
 
@@ -44,7 +42,7 @@ def load_json(path):
     if os.path.exists(path):
         try:
             with open(path, "r", encoding="utf-8") as f:
-                return manifest_json.load(f)
+                return json.load(f)
         except Exception:
             return {}
     return {}
@@ -52,7 +50,7 @@ def load_json(path):
 
 def save_json(path, data):
     with open(path, "w", encoding="utf-8") as f:
-        manifest_json.dump(data, f, indent=2, ensure_ascii=False)
+        json.dump(data, f, indent=2, ensure_ascii=False)
 
 
 def _process_now_text():
@@ -263,140 +261,6 @@ def compute_distance_and_angles_geo(lat1, lon1, depth1, lat2, lon2, depth2):
         polar_angle = np.degrees(np.arccos(cos_theta))
 
     return float(distance), float(azimuth), float(polar_angle)
-
-
-def get_session_info_path():
-    path = os.path.join(REPO_ROOT, SESSION_INFO_FILE)
-    if not os.path.exists(path):
-        open(path, "w", encoding="utf-8").close()
-    return path
-
-
-def make_qc_folder_name():
-    return datetime.now().strftime("%Y_%m_%d_%H:%M:%S")
-
-
-def write_session_folder_name(folder_name):
-    with open(get_session_info_path(), "w", encoding="utf-8") as f:
-        f.write(str(folder_name).strip())
-
-
-def read_session_folder_name():
-    with open(get_session_info_path(), "r", encoding="utf-8") as f:
-        folder_name = f.read().strip()
-    return folder_name or None
-
-
-def clear_session_info():
-    global _QC_FOLDER_NAME
-    _QC_FOLDER_NAME = None
-    with open(get_session_info_path(), "w", encoding="utf-8") as f:
-        f.write("")
-    config.activate(config.CONFIG_PATH)
-
-
-def start_new_qc_folder():
-    global _QC_FOLDER_NAME
-    folder_name = make_qc_folder_name()
-    folder_path = os.path.join(config.base_all().get("LOGS_DIR"), folder_name)
-    os.makedirs(folder_path, exist_ok=True)
-
-    run_config = dict(config.base_all())
-    run_config["RUN_OUTPUT_FOLDER_NAME"] = folder_name
-    run_config["RUN_OUTPUT_FOLDER_PATH"] = folder_path
-    run_config["RUN_CONFIG_PATH"] = os.path.join(folder_path, "config.json")
-    save_json(run_config["RUN_CONFIG_PATH"], run_config)
-    config.activate(run_config["RUN_CONFIG_PATH"])
-
-    _QC_FOLDER_NAME = folder_name
-    write_session_folder_name(folder_name)
-    return folder_name
-
-
-def latest_qc_folder_name():
-    logs_dir = config.base_all().get("LOGS_DIR")
-    if not logs_dir or not os.path.isdir(logs_dir):
-        return None
-
-    candidates = []
-    for name in os.listdir(logs_dir):
-        folder_path = os.path.join(logs_dir, name)
-        run_config_path = os.path.join(folder_path, "config.json")
-        if os.path.isdir(folder_path) and os.path.exists(run_config_path):
-            candidates.append(name)
-
-    return sorted(candidates)[-1] if candidates else None
-
-
-def resume_qc_folder(folder_name):
-    global _QC_FOLDER_NAME
-    folder_path = os.path.join(config.base_all().get("LOGS_DIR"), folder_name)
-    run_config_path = os.path.join(folder_path, "config.json")
-    if not os.path.isdir(folder_path):
-        raise RuntimeError(f"Active voxel run folder from session_info.txt does not exist: {folder_path}")
-    if not os.path.exists(run_config_path):
-        raise RuntimeError(f"Active voxel run config does not exist: {run_config_path}")
-    config.activate(run_config_path)
-    _QC_FOLDER_NAME = folder_name
-    write_session_folder_name(folder_name)
-    return folder_name
-
-
-def start_or_resume_qc_folder():
-    folder_name = read_session_folder_name()
-    if folder_name:
-        return resume_qc_folder(folder_name)
-    return start_new_qc_folder()
-
-
-def get_qc_folder_name():
-    global _QC_FOLDER_NAME
-    if _QC_FOLDER_NAME:
-        return _QC_FOLDER_NAME
-
-    folder_name = read_session_folder_name()
-    if folder_name is None:
-        raise RuntimeError(
-            "No active voxel run exists: session_info.txt is empty. "
-            "Run create_voxel_info.py / compute_voxel_info first."
-        )
-    return resume_qc_folder(folder_name)
-
-
-def get_qc_folder_path():
-    folder_name = get_qc_folder_name()
-    full_path = os.path.join(config.get("LOGS_DIR"), folder_name)
-    os.makedirs(full_path, exist_ok=True)
-    return full_path
-
-
-def resolve_stage_output_dir(output_dir=None):
-    if output_dir is None:
-        return get_qc_folder_path()
-
-    if os.path.isabs(output_dir):
-        resolved = os.path.abspath(output_dir)
-    elif os.path.dirname(str(output_dir)):
-        resolved = os.path.abspath(output_dir)
-    else:
-        resolved = os.path.join(config.get("LOGS_DIR"), str(output_dir))
-
-    logs_dir = os.path.abspath(config.base_all().get("LOGS_DIR"))
-    folder_name = os.path.basename(os.path.abspath(resolved))
-    run_config_path = os.path.join(resolved, "config.json")
-    if os.path.exists(run_config_path) and os.path.dirname(os.path.abspath(resolved)) == logs_dir:
-        resume_qc_folder(folder_name)
-        os.makedirs(resolved, exist_ok=True)
-        return resolved
-
-    active_dir = get_qc_folder_path()
-    if os.path.abspath(resolved) != os.path.abspath(active_dir):
-        raise RuntimeError(
-            "Stage output folder does not match active voxel run from session_info.txt: "
-            f"{resolved} != {active_dir}"
-        )
-    os.makedirs(resolved, exist_ok=True)
-    return resolved
 
 
 def stage_tracking_complete(output_dir, stage_name):
@@ -850,11 +714,15 @@ def write_fft_npz(path: str, payload: Mapping[str, Any]) -> None:
 
 def write_fft_bundle_npz(path: str, channels: Mapping[str, Mapping[str, Any]]) -> None:
     """Store independent channel frequency axes and spectra without pickle."""
-    if not channels or set(channels) - {"HHX", "HHY", "HHZ", "HHL", "HHQ", "HHT"}:
+    # These labels describe the NPZ file format, independently of any pipeline.
+    xyz_channels = {"HHX", "HHY", "HHZ"}
+    lqt_channels = {"HHL", "HHQ", "HHT"}
+    names = set(channels)
+    if not channels or names - (xyz_channels | lqt_channels):
         raise ValueError("invalid_fft_bundle_channels")
-    basis = "lqt" if set(channels).intersection({"HHL", "HHQ", "HHT"}) else "xyz"
-    from component_frame import channels_for
-    channels_for(channels)  # Reject mixed coordinate frames.
+    if names & xyz_channels and names & lqt_channels:
+        raise ValueError("mixed_xyz_and_lqt_components")
+    basis = "lqt" if names & lqt_channels else "xyz"
     arrays = {"channels": np.asarray(list(channels)), "waveform_layout": np.asarray(basis+"_fft_v1")}
     for channel, payload in channels.items():
         arrays.update({f"{channel}_{field}": value for field, value in _validate_fft_payload(payload).items()})

@@ -18,8 +18,6 @@
   "resampling": true,
   "resampling_rate": 70,
   "cut_pre_arrival_seconds": 30,
-  "polarization_window_seconds": 1.0,
-  "polarization_rectilinearity_power": 1.0,
   "p_polarization_window_seconds": 1.0,
   "p_polarization_min_rectilinearity": 0.7,
   "station_p_sta_seconds": 0.5,

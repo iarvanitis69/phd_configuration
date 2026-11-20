@@ -12,11 +12,22 @@ keeping separate local copies.
 
 `phd_configuration` provides:
 
-- A central `config.json` with data paths, acquisition thresholds,
-  preprocessing parameters, and `STUDY_AREA` geometry.
-- A runtime config loader in `config.py`.
-- Shared utility functions in `utils.py` for JSON I/O, QC/run folders,
-  stage tracking, coordinate conversion, ZNE-to-BOX rotation, and logging.
+- A shared `config.json` containing base settings for the consuming projects.
+- A generic config loader in `config_loader.py`.
+- Shared utility functions in `utils.py` for plain JSON I/O, stage tracking,
+  coordinate conversion, ZNE-to-BOX rotation, FFT file formats and logging.
+
+This package is independent of the preprocessing project. `utils.load_json`
+and `utils.save_json` use Python's standard `json` library and preserve the
+supplied structure: they do not compact station paths, expand channel records
+or replace legacy identifiers. Preprocessing-specific manifest handling lives
+in that project's runtime and is explicitly selected by its callers.
+
+The FFT bundle helpers validate their own file-format labels and schemas locally.
+They support full or partial XYZ and LQT bundles, reject mixed coordinate frames,
+and retain per-channel timing and amplitude metadata without importing a
+preprocessing runtime. No preprocessing module is required to import or use
+these shared JSON/FFT helpers.
 
 The module is deliberately small because it is a common dependency. Changes in
 this repository can affect all projects that include it as a submodule.
@@ -25,8 +36,8 @@ this repository can affect all projects that include it as a submodule.
 
 | File | Purpose |
 | --- | --- |
-| `config.json` | Base configuration used by all projects. |
-| `config.py` | Loads the base config or the active run config. |
+| `config.json` | Shared base settings for acquisition, preprocessing and visualization. |
+| `config_loader.py` | Loads the shared base configuration or an explicitly selected JSON file. |
 | `utils.py` | Shared helpers used by acquisition, preprocessing, and visualization scripts. |
 | `README.md` | Documentation for this shared module. |
 
@@ -60,11 +71,10 @@ git commit -m "Update phd_configuration submodule"
 Typical usage from a parent repository:
 
 ```python
-from phd_configuration import config
-from phd_configuration.utils import get_qc_folder_path, geo_to_cartesian_wrapper
+from phd_configuration import config_loader as config
+from phd_configuration.utils import geo_to_cartesian_wrapper
 
 logs_dir = config.get("LOGS_DIR")
-qc_dir = get_qc_folder_path()
 x, y, z = geo_to_cartesian_wrapper(lat, lon, depth_km)
 ```
 
@@ -74,54 +84,33 @@ from the parent repository root and the submodule path is `./phd_configuration`.
 
 ## Runtime configuration
 
-`config.py` exposes the following public functions:
+`config_loader.py` exposes the following public functions:
 
 | Function | Description |
 | --- | --- |
 | `config.get(key, default=None)` | Read a config value from the active config. |
 | `config.all()` | Return the active config dictionary. |
-| `config.base_all()` | Return the base `config.json` dictionary from this repository. |
+| `config.base_all()` | Return the shared base `config.json` dictionary. |
 | `config.source_path()` | Return the path of the config file currently being used. |
 | `config.activate(path)` | Manually switch the active config to another JSON file. |
 
-By default, the active config is `phd_configuration/config.json`.
+The base configuration is the shared `config.json` beside `config_loader.py`.
+`config.CONFIG_PATH` resolves that file relative to the loader itself, so the
+caller project and process working directory do not select a different base
+file. An unrelated `config.json` in a parent project or working directory is
+ignored. A missing shared configuration is an explicit file error.
 
-If the parent repository root contains `session_info.txt` and it stores a run
-folder name, `config.py` checks:
+The loader reads the base file until a caller explicitly selects another JSON
+file with `config.activate(path)`. It does not discover sessions, create run
+folders or inspect preprocessing state. A project can explicitly activate a
+shared configuration file used by other projects; `base_all()` continues to
+read the shared `CONFIG_PATH`.
 
-```text
-<LOGS_DIR>/<folder name>/config.json
-```
-
-If that file exists, it becomes the active config. This lets later pipeline
-stages use the exact config snapshot that was written when the run started.
-
-## Run-folder workflow
-
-The run-folder helpers in `utils.py` coordinate pipeline stages through the
-parent repository file:
-
-```text
-session_info.txt
-```
-
-Important helpers:
-
-| Function | Description |
-| --- | --- |
-| `start_new_qc_folder()` | Creates a timestamped folder under `LOGS_DIR`, writes a run `config.json`, activates it, and stores the folder name in `session_info.txt`. |
-| `start_or_resume_qc_folder()` | Resumes the folder in `session_info.txt`, or creates a new one if the file is empty. |
-| `get_qc_folder_name()` | Returns the active run folder name, or raises an error if no run is active. |
-| `get_qc_folder_path()` | Returns and creates the active run folder path under `LOGS_DIR`. |
-| `resolve_stage_output_dir(output_dir=None)` | Resolves a stage output path and verifies it matches the active run. |
-| `latest_qc_folder_name()` | Finds the latest run folder that contains a `config.json`. |
-| `clear_session_info()` | Clears the active run and reactivates the base config. |
-
-The intended pipeline behavior is:
-
-1. The first stage starts or resumes a run.
-2. Every later stage writes into the active run folder.
-3. The final stage clears `session_info.txt` after successful completion.
+Preprocessing owns its session/run lifecycle in its own `stage_runtime.py`.
+That runtime selects saved run configurations, creates snapshots and clears
+session state. The run-folder and session helpers have been removed from this
+shared package; preprocessing callers import them directly from the runtime.
+Other projects using the loader do not inherit preprocessing run selection.
 
 ## Stage tracking helpers
 
@@ -172,27 +161,24 @@ with tee_stdout("/path/to/stage.log"):
 
 ## Configuration keys
 
-The base `config.json` currently contains:
+The shared `config.json` contains settings used by the consuming projects,
+including data paths, acquisition thresholds, preprocessing SNR/filter/polarization
+settings and study-area geometry. Each project reads the keys it needs; the
+loader does not hardcode those keys. Shared helpers read the keys required by
+their documented operations, such as `LOGS_DIR` for paths and `STUDY_AREA` for
+geometry.
 
-- Data paths: `BASE_DIR`, `LOGS_DIR`
-- Acquisition settings: `min_magnitude_acquisition`,
-  `max_event_depth_acquisition`, `preset_on_data_acquisition`,
-  `offset_on_data_acquisition`
-- Preprocessing/QC settings: `cube_voxel_side_length`,
-  `FIX_GLITCHES_WITH_INTERPOLATION`, `minSnr`, `minEventDuration`,
-  `maxEventDuration`, `minDepth`, `maxDepth`, `low_frequency`,
-  `high_frequency`
-- Geometry section: `STUDY_AREA`
-
-When adding keys, keep the change backward-compatible where possible because
-all parent projects may read this file through the same submodule.
+Preprocessing snapshots the shared configuration for new runs. Existing runs
+retain their own saved settings until explicitly changed or a new run is started.
+Session discovery and snapshot selection belong exclusively to the preprocessing
+runtime, not this shared package.
 
 ## Development notes
 
 - Use the `phd_conda_env_p10` interpreter/environment for this project.
 - Keep this repository importable as a plain Python package directory.
 - Do not write parent-project-specific code here unless it is genuinely shared.
-- After changing `config.py`, `utils.py`, or `config.json`, update each parent
+- After changing `config.json`, `config_loader.py` or `utils.py`, update each parent
   repository's submodule pointer.
 - To generate a PDF copy of this README:
 
