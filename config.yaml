@@ -1,5 +1,6 @@
 BASE_DIR: /media/iarv/Samsung/Events  # Root directory for earthquake events and original waveforms.
 LOGS_DIR: /media/iarv/Samsung/Events/Logs  # Directory for logs, processing outputs and run configuration snapshots.
+pipeline_workers: 1  # Default concurrent jobs in heavy stages; per-stage settings/environment overrides take precedence.
 min_magnitude_acquisition: 2.0  # Minimum event magnitude for data acquisition.
 max_event_depth_acquisition: 25.0  # Maximum event focal depth for data acquisition (km).
 preset_on_data_acquisition: 30  # Acquisition time before the earthquake origin time (s).
@@ -50,9 +51,9 @@ velocity_model_papadimitriou_2015:  # Alternative layered Papadimitriou 2015 vel
   Vp_per_Vs: 1.777  # Model Vp/Vs ratio; recorded in metadata.
 FIX_GLITCHES_WITH_INTERPOLATION: false  # Repair glitches by interpolation instead of rejecting affected data.
 must_contain_all_3_channels: false  # Require all three channels to be present and pass quality control.
-minSnr: 3  # SNR threshold; values at or below this value are flagged as low SNR.
-minEventDuration: 3  # Minimum accepted waveform duration during QC (s).
-maxEventDuration: 240  # Maximum accepted waveform duration during QC (s).
+minSnr: 3  # Full-LQT SNR threshold; reject the station only when measured SNR_L <= this value (Q/T diagnostic).
+minEventDuration: 3  # Minimum boundary-defined event duration in the full LQT trace during QC (s).
+maxEventDuration: 240  # Maximum boundary-defined event duration in the full LQT trace during QC (s).
 minDepth: 0  # Minimum accepted event focal depth during QC (km).
 maxDepth: 25  # Maximum accepted event focal depth during QC (km).
 low_frequency: 0.5  # Lower band-pass frequency for filtering and P detection (Hz).
@@ -81,6 +82,7 @@ station_s_min_p_travel_ratio: 1.2  # Minimum travel-time ratio tS/tP measured fr
 station_s_max_p_travel_ratio: 2.5  # Maximum travel-time ratio tS/tP measured from the event origin.
 station_s_min_p_gap_seconds: 0.1  # Minimum time separation between S and P arrivals (s).
 station_s_travel_margin_seconds: 2.0  # Extra margin for the geometric S search window (s).
+boundaries_workers: 1  # Concurrent stations in boundaries; 1 limits peak waveform RAM use.
 p_wave_search_seconds: 5.0  # Per-channel P search radius around station P in boundaries (s).
 snr_noise_seconds: 30.0  # Maximum pre-P noise-window duration for SNR measurement (s).
 snr_signal_seconds: 30.0  # Maximum post-P signal-window duration for SNR measurement (s).

@@ -219,9 +219,17 @@ and is recorded as `station_p_arrival`. These additions introduce no pipeline st
 
 `station_p_min_rms_snr` has been removed: preprocessing's initial P picker records
 RMS ratios only as diagnostics and ignores that obsolete key in older snapshots.
-The native NZE SNR stage uses `minSnr` to flag each input component, while retaining
-all three waveforms for covariance and LQT. `lqt_snr_threshold_components` is
-obsolete in the reordered pipeline and is ignored in older snapshots.
+The SNR stage runs only on full L/Q/T records after rotation and writes separate
+scores for L, Q and T. `minSnr` excludes the entire station only when measured
+`SNR_L <= minSnr`; Q/T scores remain diagnostic. Missing noise is recorded as an
+unavailable SNR, without inventing a passing value or applying a numeric gate.
+No SNR is measured on native NZE and no NZE SNR flags are generated. The initial
+P picker's RMS ratio remains diagnostic only. QC consumes the existing LQT SNR
+without recalculating it, while accepted QC paths still point to cut bundles.
+`minEventDuration` and `maxEventDuration` constrain the boundary-defined event
+interval in the full record, rather than the short P-to-S cut.
+`lqt_snr_threshold_components` is obsolete and ignored in older snapshots;
+the L-only threshold policy is fixed in preprocessing.
 
 `cut_pre_arrival_seconds=0.2` selects the preprocessing cut margin before the
 earliest native N/E/Z arrival; all output components use one common UTC window.
@@ -244,6 +252,18 @@ of preprocessing's zero-phase ObsPy band-pass. The filter also requires at
 least three periods at `low_frequency`, then removes the reflected samples.
 The signal length and timing are preserved.
 The current filter band is `low_frequency=0.5` to `high_frequency=30` Hz.
+`boundaries_workers=1` limits concurrent stations in preprocessing's boundaries
+stage to reduce peak waveform RAM. The stage also defaults to one worker when
+an older snapshot omits this key. This is an execution setting: completed
+scientific results remain reusable when the worker count changes. The existing
+`BOUNDARIES_WORKERS` environment override takes precedence.
+`pipeline_workers=1` supplies the default for preprocessing's other heavy
+station, waveform, event-geometry, QC, Fourier and verification jobs. Explicit
+`<operation>_workers` settings override the default and `<OPERATION>_WORKERS`
+environment variables override both. These control execution concurrency,
+not scientific processing parameters. Older snapshots without the global key
+also default to one worker. Preprocessing owns the bounded job queues and
+cache/reuse policy; the shared loader only supplies configuration values.
 Preprocessing’s existing verification stage reads saved Fourier coefficients.
 Its `fourier_phase_*` settings control amplitude floors, the spectral SNR
 threshold/metric, optional unit phasors and `fourier_phase_fnn_require_snr`.
