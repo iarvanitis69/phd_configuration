@@ -690,6 +690,7 @@ def _validate_fft_payload(payload: Mapping[str, Any], require_correction_filter:
         'fft_phase_rule': str, 'time_reference_kind': str,
         'time_reference_ns': np.int64, 'trace_starttime_ns': np.int64,
         'phase_offset_seconds': np.float64, 'normalization_rule': str,
+        'spectral_window_energy': np.float64, 'spectral_units': str, 'spectral_power_rule': str,
         'normalization_scale': np.float64, 'amplitude_scale_to_input': np.float64,
     }.items():
         if field in payload:
@@ -714,15 +715,20 @@ def write_fft_npz(path: str, payload: Mapping[str, Any]) -> None:
 
 def write_fft_bundle_npz(path: str, channels: Mapping[str, Mapping[str, Any]]) -> None:
     """Store independent channel frequency axes and spectra without pickle."""
-    # These labels describe the NPZ file format, independently of any pipeline.
-    xyz_channels = {"HHX", "HHY", "HHZ"}
-    lqt_channels = {"HHL", "HHQ", "HHT"}
+    # File-format labels are independent of any processing pipeline.
     names = set(channels)
-    if not channels or names - (xyz_channels | lqt_channels):
-        raise ValueError("invalid_fft_bundle_channels")
-    if names & xyz_channels and names & lqt_channels:
-        raise ValueError("mixed_xyz_and_lqt_components")
-    basis = "lqt" if names & lqt_channels else "xyz"
+    nze = bool(names & {'HHN','HHE'})
+    xyz = bool(names & {'HHX','HHY'})
+    lqt = bool(names & {'HHL','HHQ','HHT'})
+    if not names or names - {'HHN','HHE','HHZ','HHX','HHY','HHL','HHQ','HHT'}:
+        raise ValueError('invalid_fft_bundle_channels')
+    if xyz and lqt:
+        raise ValueError('mixed_xyz_and_lqt_components')
+    if nze and xyz:
+        raise ValueError('mixed_nze_and_xyz_components')
+    if lqt and (nze or 'HHZ' in names):
+        raise ValueError('mixed_nze_and_lqt_components')
+    basis = 'lqt' if lqt else 'xyz' if xyz else 'nze'
     arrays = {"channels": np.asarray(list(channels)), "waveform_layout": np.asarray(basis+"_fft_v1")}
     for channel, payload in channels.items():
         arrays.update({f"{channel}_{field}": value for field, value in _validate_fft_payload(payload).items()})
