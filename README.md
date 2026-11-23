@@ -214,12 +214,14 @@ minimum/maximum apparent velocity (km/s), minimum/maximum S-to-P travel-time
 ratio, minimum S–P gap and travel-time margin (seconds). Bounds and input
 validation are applied in `boundaries.py`. Only a triggered/AIC S candidate that
 passes the checks is stored; otherwise its channel has `s_arrival="NOT_AVAILABLE"`
-and an explanatory reason. Station P is the earliest native-channel `p_arrival`
-and is recorded as `station_p_arrival`. These additions introduce no pipeline step.
+and an explanatory reason. After native polarization and LQT rotation, `boundaries` measures P/S only
+on L/Q/T. The earliest LQT channel P is `station_p_arrival`; the initial P
+selected internally by polarization remains `initial_station_p_arrival`. These additions introduce no pipeline step.
 
 `station_p_min_rms_snr` has been removed: preprocessing's initial P picker records
 RMS ratios only as diagnostics and ignores that obsolete key in older snapshots.
-The SNR stage runs only on full L/Q/T records after rotation and writes separate
+The SNR stage reads final per-channel P and signal limits from `boundaries.json`
+and runs only on full L/Q/T records after rotation and boundaries and writes separate
 scores for L, Q and T. `minSnr` excludes the entire station only when measured
 `SNR_L <= minSnr`; Q/T scores remain diagnostic. Missing noise is recorded as an
 unavailable SNR, without inventing a passing value or applying a numeric gate.
@@ -232,7 +234,7 @@ interval in the full record, rather than the short P-to-S cut.
 the L-only threshold policy is fixed in preprocessing.
 
 `cut_pre_arrival_seconds=0.2` selects the preprocessing cut margin before the
-earliest native N/E/Z arrival; all output components use one common UTC window.
+earliest final L/Q/T arrival; all output components use one common UTC window.
 `cut_estimated_s_margin_seconds=0.3` is the safety margin before an S arrival
 estimated from the observed P travel time and the active model's `Vp_per_Vs`.
 Preprocessing's existing cutting step prefers the earliest validated observed S,
