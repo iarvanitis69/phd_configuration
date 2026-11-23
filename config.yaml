@@ -1,13 +1,13 @@
-BASE_DIR: /media/iarv/Samsung/Events  # Ριζικός φάκελος σεισμών και αρχικών κυματομορφών.
-LOGS_DIR: /media/iarv/Samsung/Events/Logs  # Φάκελος logs, αποτελεσμάτων και snapshots των runs.
-min_magnitude_acquisition: 2.0  # Ελάχιστο μέγεθος σεισμού για λήψη δεδομένων.
-max_event_depth_acquisition: 25.0  # Μέγιστο εστιακό βάθος για λήψη δεδομένων (km).
-preset_on_data_acquisition: 30  # Χρόνος καταγραφής πριν από τον χρόνο γένεσης του σεισμού (s).
-offset_on_data_acquisition: 240  # Χρόνος καταγραφής μετά τον χρόνο γένεσης του σεισμού (s).
-cube_voxel_side_length: 1  # Μήκος πλευράς κάθε κυβικού voxel (km).
-velocity_model: velocity_model_valianatos  # Όνομα του ενεργού μοντέλου ταχυτήτων από τους παρακάτω πίνακες.
-velocity_model_valianatos:  # Στρωματοποιημένο μοντέλο ταχυτήτων Valianatos.
-  depth_bin_edges_km:  # Όρια στρωμάτων βάθους (km)· κάθε ζεύγος ορίων ορίζει ένα στρώμα.
+BASE_DIR: /media/iarv/Samsung/Events  # Root directory for earthquake events and original waveforms.
+LOGS_DIR: /media/iarv/Samsung/Events/Logs  # Directory for logs, processing outputs and run configuration snapshots.
+min_magnitude_acquisition: 2.0  # Minimum event magnitude for data acquisition.
+max_event_depth_acquisition: 25.0  # Maximum event focal depth for data acquisition (km).
+preset_on_data_acquisition: 30  # Acquisition time before the earthquake origin time (s).
+offset_on_data_acquisition: 240  # Acquisition time after the earthquake origin time (s).
+cube_voxel_side_length: 1  # Side length of each cubic voxel (km).
+velocity_model: velocity_model_valianatos  # Name of the active velocity model defined below.
+velocity_model_valianatos:  # Layered Valianatos velocity model.
+  depth_bin_edges_km:  # Layer depth boundaries (km); each adjacent pair defines one layer.
   - 0.0
   - 1.0
   - 3.0
@@ -17,7 +17,7 @@ velocity_model_valianatos:  # Στρωματοποιημένο μοντέλο τ
   - 18.0
   - 22.0
   - 26.0
-  Vp:  # Ταχύτητα κύματος P ανά στρώμα, με τη σειρά των ορίων βάθους (km/s).
+  Vp:  # P-wave velocity per layer, in depth-boundary order (km/s).
   - 4.0
   - 4.3
   - 4.8
@@ -26,9 +26,9 @@ velocity_model_valianatos:  # Στρωματοποιημένο μοντέλο τ
   - 5.8
   - 6.1
   - 6.6
-  Vp_per_Vs: 1.777  # Λόγος Vp/Vs του μοντέλου· αποθηκεύεται στα metadata.
-velocity_model_papadimitriou_2015:  # Εναλλακτικό στρωματοποιημένο μοντέλο Papadimitriou 2015.
-  depth_bin_edges_km:  # Όρια στρωμάτων βάθους (km)· κάθε ζεύγος ορίων ορίζει ένα στρώμα.
+  Vp_per_Vs: 1.777  # Model Vp/Vs ratio; recorded in metadata.
+velocity_model_papadimitriou_2015:  # Alternative layered Papadimitriou 2015 velocity model.
+  depth_bin_edges_km:  # Layer depth boundaries (km); each adjacent pair defines one layer.
   - 0.0
   - 1.0
   - 3.0
@@ -38,7 +38,7 @@ velocity_model_papadimitriou_2015:  # Εναλλακτικό στρωματοπ�
   - 18.0
   - 22.0
   - 26.0
-  Vp:  # Ταχύτητα κύματος P ανά στρώμα, με τη σειρά των ορίων βάθους (km/s).
+  Vp:  # P-wave velocity per layer, in depth-boundary order (km/s).
   - 4.72
   - 4.77
   - 4.97
@@ -47,136 +47,127 @@ velocity_model_papadimitriou_2015:  # Εναλλακτικό στρωματοπ�
   - 6.28
   - 6.48
   - 7.02
-  Vp_per_Vs: 1.777  # Λόγος Vp/Vs του μοντέλου· αποθηκεύεται στα metadata.
-FIX_GLITCHES_WITH_INTERPOLATION: false  # Διόρθωση glitches με παρεμβολή αντί αποκλεισμού.
-must_contain_all_3_channels: false  # Απαίτηση παρουσίας και επιτυχούς QC και των τριών καναλιών.
-minSnr: 3  # Όριο SNR· τιμές μικρότερες ή ίσες σημειώνονται ως χαμηλές.
-minEventDuration: 3  # Ελάχιστη αποδεκτή διάρκεια κυματομορφής στο QC (s).
-maxEventDuration: 240  # Μέγιστη αποδεκτή διάρκεια κυματομορφής στο QC (s).
-minDepth: 0  # Ελάχιστο αποδεκτό εστιακό βάθος στο QC (km).
-maxDepth: 25  # Μέγιστο αποδεκτό εστιακό βάθος στο QC (km).
-low_frequency: 0.5  # Κάτω συχνότητα band-pass και φίλτρου ανίχνευσης P (Hz).
-high_frequency: 30  # Άνω συχνότητα band-pass και φίλτρου ανίχνευσης P (Hz).
-resampling: true  # Ενεργοποίηση προαιρετικού resampling· εκτός της τρέχουσας ροής.
-resampling_rate: 70  # Συχνότητα δειγματοληψίας στόχος του resampling (Hz).
-cut_pre_arrival_seconds: 0.2  # Κοινή αρχή κοπής τόσο πριν από την πρωιμότερη P των N/E/Z (s).
-filter_padding_seconds: 3.0  # Ελάχιστο padding σε κάθε άκρο πριν από το band-pass (s).
-p_polarization_window_seconds: 1.0  # Διάρκεια παραθύρου πόλωσης μετά τη σταθμική άφιξη P (s).
-p_polarization_min_rectilinearity: 0.7  # Ελάχιστο rectilinearity για χρήση της μετρημένης πόλωσης ως L.
-station_p_sta_seconds: 0.5  # Διάρκεια βραχέος παραθύρου STA για ανίχνευση P (s).
-station_p_lta_seconds: 5.0  # Διάρκεια μακρού παραθύρου LTA για ανίχνευση P (s).
-station_p_trigger_on: 3.0  # Λόγος STA/LTA που ενεργοποιεί έναν υποψήφιο παλμό P.
-station_p_trigger_off: 1.5  # Λόγος STA/LTA που τερματίζει έναν υποψήφιο παλμό P.
-station_p_aic_before_seconds: 1.0  # Περιθώριο πριν από το trigger για τοπική βελτίωση P με AIC (s).
-station_p_aic_after_seconds: 0.5  # Περιθώριο μετά το trigger για τοπική βελτίωση P με AIC (s).
-station_p_noise_seconds: 2.0  # Παράθυρο θορύβου για διαγνωστικό RMS SNR του picker P (s).
-station_p_noise_guard_seconds: 0.1  # Κενό πριν από την P για το διαγνωστικό παράθυρο θορύβου (s).
-station_p_signal_seconds: 0.5  # Παράθυρο μετά την P για διαγνωστικό RMS SNR, χωρίς αποκλεισμό (s).
-station_p_min_velocity_km_s: 3.0  # Ελάχιστη φαινόμενη ταχύτητα P για το γεωμετρικό παράθυρο αναζήτησης (km/s).
-station_p_max_velocity_km_s: 8.0  # Μέγιστη φαινόμενη ταχύτητα P για το γεωμετρικό παράθυρο αναζήτησης (km/s).
-station_p_travel_margin_seconds: 2.0  # Επιπλέον περιθώριο στα όρια του γεωμετρικού παραθύρου P (s).
-station_s_min_velocity_km_s: 1.5  # Ελάχιστη αποδεκτή φαινόμενη ταχύτητα S (km/s).
-station_s_max_velocity_km_s: 4.5  # Μέγιστη αποδεκτή φαινόμενη ταχύτητα S (km/s).
-station_s_min_p_travel_ratio: 1.2  # Ελάχιστος λόγος χρόνων διαδρομής tS/tP από τη γένεση.
-station_s_max_p_travel_ratio: 2.5  # Μέγιστος λόγος χρόνων διαδρομής tS/tP από τη γένεση.
-station_s_min_p_gap_seconds: 0.1  # Ελάχιστη χρονική απόσταση της S μετά την P (s).
-station_s_travel_margin_seconds: 2.0  # Επιπλέον περιθώριο στο γεωμετρικό παράθυρο S (s).
-time_normalization_scale: 1.0  # Κοινός διαιρέτης πλατών για το standalone normalize_filtered_signals.
-fft_normalization_scale: 1.0  # Κοινός διαιρέτης FFT για το standalone normalize_fft_signals.
-p_wave_sta_seconds: 0.5  # STA του προαιρετικού picker ανά κανάλι (s)· εκτός τρέχουσας ροής.
-p_wave_lta_seconds: 5.0  # LTA του προαιρετικού picker ανά κανάλι (s)· εκτός τρέχουσας ροής.
-p_wave_trigger_on: 3.0  # Όριο ενεργοποίησης του προαιρετικού picker ανά κανάλι.
-p_wave_trigger_off: 1.5  # Όριο τερματισμού του προαιρετικού picker ανά κανάλι.
-p_wave_search_seconds: 5.0  # Ακτίνα αναζήτησης P ανά κανάλι γύρω από τη σταθμική P στα boundaries (s).
-p_wave_aic_before_seconds: 1.0  # Παράθυρο AIC πριν από το trigger του προαιρετικού picker (s).
-p_wave_aic_after_seconds: 2.0  # Παράθυρο AIC μετά το trigger του προαιρετικού picker (s).
-snr_noise_seconds: 30.0  # Μέγιστη διάρκεια προσεισμικού θορύβου για μέτρηση SNR (s).
-snr_signal_seconds: 30.0  # Μέγιστη διάρκεια σήματος μετά την P για μέτρηση SNR (s).
-snr_noise_guard_seconds: 1.0  # Κενό μεταξύ τέλους θορύβου και άφιξης P για το SNR (s).
-snr_min_noise_seconds: 1.0  # Ελάχιστη απαιτούμενη διάρκεια διαθέσιμου θορύβου για SNR (s).
-STF_creation_method: PGaussian  # Παλαιά επιλογή μεθόδου STF· δεν χρησιμοποιείται στην τρέχουσα ροή.
-STUDY_AREA:  # Γεωγραφικά όρια, τοπικές συντεταγμένες και πλέγμα της περιοχής μελέτης.
-  grid_shape:  # Πλήθος voxels ανά τοπικό άξονα.
-    n: 100  # Πλήθος voxels κατά τον άξονα x.
-    m: 100  # Πλήθος voxels κατά τον άξονα y.
-    l: 25  # Πλήθος voxels κατά τον άξονα z.
-  corners:  # Οκτώ κορυφές του τρισδιάστατου κουτιού της περιοχής μελέτης.
-    top_SW:  # Άνω νοτιοδυτική κορυφή του κουτιού μελέτης.
-      geo:  # Γεωγραφικές συντεταγμένες [πλάτος σε μοίρες, μήκος σε μοίρες, βάθος σε km].
+  Vp_per_Vs: 1.777  # Model Vp/Vs ratio; recorded in metadata.
+FIX_GLITCHES_WITH_INTERPOLATION: false  # Repair glitches by interpolation instead of rejecting affected data.
+must_contain_all_3_channels: false  # Require all three channels to be present and pass quality control.
+minSnr: 3  # SNR threshold; values at or below this value are flagged as low SNR.
+minEventDuration: 3  # Minimum accepted waveform duration during QC (s).
+maxEventDuration: 240  # Maximum accepted waveform duration during QC (s).
+minDepth: 0  # Minimum accepted event focal depth during QC (km).
+maxDepth: 25  # Maximum accepted event focal depth during QC (km).
+low_frequency: 0.5  # Lower band-pass frequency for filtering and P detection (Hz).
+high_frequency: 30  # Upper band-pass frequency for filtering and P detection (Hz).
+cut_pre_arrival_seconds: 0.2  # Common cut start offset before the earliest N/E/Z P arrival (s).
+cut_estimated_s_margin_seconds: 0  # Safety margin before an S arrival estimated from P travel time (s).
+cut_minimum_duration_reference_seconds: 0.5  # Minimum cut duration = pre-arrival + this reference - estimated-S margin (s).
+filter_padding_seconds: 3.0  # Minimum padding at each signal edge before band-pass filtering (s).
+p_polarization_window_seconds: 1.0  # Polarization window duration after the station P arrival (s).
+p_polarization_min_rectilinearity: 0.7  # Minimum rectilinearity for using measured polarization as the L axis.
+station_p_sta_seconds: 0.5  # Short-term averaging window for P detection (s).
+station_p_lta_seconds: 5.0  # Long-term averaging window for P detection (s).
+station_p_trigger_on: 3.0  # STA/LTA ratio that starts a candidate P trigger.
+station_p_trigger_off: 1.5  # STA/LTA ratio that ends a candidate P trigger.
+station_p_aic_before_seconds: 1.0  # Time before the trigger for local AIC refinement of P (s).
+station_p_aic_after_seconds: 0.5  # Time after the trigger for local AIC refinement of P (s).
+station_p_noise_seconds: 2.0  # Noise window for diagnostic RMS SNR in the P picker (s).
+station_p_noise_guard_seconds: 0.1  # Gap before P for the diagnostic noise window (s).
+station_p_signal_seconds: 0.5  # Post-P window for diagnostic RMS SNR; does not reject stations (s).
+station_p_min_velocity_km_s: 3.0  # Minimum apparent P velocity for the geometric search window (km/s).
+station_p_max_velocity_km_s: 8.0  # Maximum apparent P velocity for the geometric search window (km/s).
+station_p_travel_margin_seconds: 2.0  # Extra margin at both bounds of the geometric P search window (s).
+station_s_min_velocity_km_s: 1.5  # Minimum accepted apparent S velocity (km/s).
+station_s_max_velocity_km_s: 4.5  # Maximum accepted apparent S velocity (km/s).
+station_s_min_p_travel_ratio: 1.2  # Minimum travel-time ratio tS/tP measured from the event origin.
+station_s_max_p_travel_ratio: 2.5  # Maximum travel-time ratio tS/tP measured from the event origin.
+station_s_min_p_gap_seconds: 0.1  # Minimum time separation between S and P arrivals (s).
+station_s_travel_margin_seconds: 2.0  # Extra margin for the geometric S search window (s).
+p_wave_search_seconds: 5.0  # Per-channel P search radius around station P in boundaries (s).
+snr_noise_seconds: 30.0  # Maximum pre-P noise-window duration for SNR measurement (s).
+snr_signal_seconds: 30.0  # Maximum post-P signal-window duration for SNR measurement (s).
+snr_noise_guard_seconds: 1.0  # Gap between the noise-window end and P arrival for SNR (s).
+snr_min_noise_seconds: 1.0  # Minimum available noise duration required for SNR measurement (s).
+STUDY_AREA:  # Geographic bounds, local coordinates and grid of the study volume.
+  grid_shape:  # Number of voxels along each local coordinate axis.
+    n: 100  # Number of voxels along the x axis.
+    m: 100  # Number of voxels along the y axis.
+    l: 25  # Number of voxels along the z axis.
+  corners:  # Eight corners of the three-dimensional study volume.
+    top_SW:  # Upper southwest corner of the study volume.
+      geo:  # Geographic coordinates [latitude in degrees, longitude in degrees, depth in km].
       - 36.145722686
       - 25.07843235
       - -1.0
-      local:  # Τοπικές συντεταγμένες [x, y, z] σε km στο σύστημα της περιοχής μελέτης.
+      local:  # Local coordinates [x, y, z] in km in the study-area reference frame.
       - 0.0
       - 0.0
       - 25.0
-    top_SE:  # Άνω νοτιοανατολική κορυφή του κουτιού μελέτης.
-      geo:  # Γεωγραφικές συντεταγμένες [πλάτος σε μοίρες, μήκος σε μοίρες, βάθος σε km].
+    top_SE:  # Upper southeast corner of the study volume.
+      geo:  # Geographic coordinates [latitude in degrees, longitude in degrees, depth in km].
       - 36.145722686
       - 26.179017444
       - -1.0
-      local:  # Τοπικές συντεταγμένες [x, y, z] σε km στο σύστημα της περιοχής μελέτης.
+      local:  # Local coordinates [x, y, z] in km in the study-area reference frame.
       - 100.0
       - 0.0
       - 25.0
-    top_NE:  # Άνω βορειοανατολική κορυφή του κουτιού μελέτης.
-      geo:  # Γεωγραφικές συντεταγμένες [πλάτος σε μοίρες, μήκος σε μοίρες, βάθος σε km].
+    top_NE:  # Upper northeast corner of the study volume.
+      geo:  # Geographic coordinates [latitude in degrees, longitude in degrees, depth in km].
       - 37.045044292
       - 26.179017444
       - -1.0
-      local:  # Τοπικές συντεταγμένες [x, y, z] σε km στο σύστημα της περιοχής μελέτης.
+      local:  # Local coordinates [x, y, z] in km in the study-area reference frame.
       - 100.0
       - 100.0
       - 25.0
-    top_NW:  # Άνω βορειοδυτική κορυφή του κουτιού μελέτης.
-      geo:  # Γεωγραφικές συντεταγμένες [πλάτος σε μοίρες, μήκος σε μοίρες, βάθος σε km].
+    top_NW:  # Upper northwest corner of the study volume.
+      geo:  # Geographic coordinates [latitude in degrees, longitude in degrees, depth in km].
       - 37.045044292
       - 25.07843235
       - -1.0
-      local:  # Τοπικές συντεταγμένες [x, y, z] σε km στο σύστημα της περιοχής μελέτης.
+      local:  # Local coordinates [x, y, z] in km in the study-area reference frame.
       - 0.0
       - 100.0
       - 25.0
-    bottom_SW:  # Κάτω νοτιοδυτική κορυφή του κουτιού μελέτης.
-      geo:  # Γεωγραφικές συντεταγμένες [πλάτος σε μοίρες, μήκος σε μοίρες, βάθος σε km].
+    bottom_SW:  # Lower southwest corner of the study volume.
+      geo:  # Geographic coordinates [latitude in degrees, longitude in degrees, depth in km].
       - 36.145722686
       - 25.07843235
       - 24.0
-      local:  # Τοπικές συντεταγμένες [x, y, z] σε km στο σύστημα της περιοχής μελέτης.
+      local:  # Local coordinates [x, y, z] in km in the study-area reference frame.
       - 0.0
       - 0.0
       - 0.0
-    bottom_SE:  # Κάτω νοτιοανατολική κορυφή του κουτιού μελέτης.
-      geo:  # Γεωγραφικές συντεταγμένες [πλάτος σε μοίρες, μήκος σε μοίρες, βάθος σε km].
+    bottom_SE:  # Lower southeast corner of the study volume.
+      geo:  # Geographic coordinates [latitude in degrees, longitude in degrees, depth in km].
       - 36.145722686
       - 26.179017444
       - 24.0
-      local:  # Τοπικές συντεταγμένες [x, y, z] σε km στο σύστημα της περιοχής μελέτης.
+      local:  # Local coordinates [x, y, z] in km in the study-area reference frame.
       - 100.0
       - 0.0
       - 0.0
-    bottom_NE:  # Κάτω βορειοανατολική κορυφή του κουτιού μελέτης.
-      geo:  # Γεωγραφικές συντεταγμένες [πλάτος σε μοίρες, μήκος σε μοίρες, βάθος σε km].
+    bottom_NE:  # Lower northeast corner of the study volume.
+      geo:  # Geographic coordinates [latitude in degrees, longitude in degrees, depth in km].
       - 37.045044292
       - 26.179017444
       - 24.0
-      local:  # Τοπικές συντεταγμένες [x, y, z] σε km στο σύστημα της περιοχής μελέτης.
+      local:  # Local coordinates [x, y, z] in km in the study-area reference frame.
       - 100.0
       - 100.0
       - 0.0
-    bottom_NW:  # Κάτω βορειοδυτική κορυφή του κουτιού μελέτης.
-      geo:  # Γεωγραφικές συντεταγμένες [πλάτος σε μοίρες, μήκος σε μοίρες, βάθος σε km].
+    bottom_NW:  # Lower northwest corner of the study volume.
+      geo:  # Geographic coordinates [latitude in degrees, longitude in degrees, depth in km].
       - 37.045044292
       - 25.07843235
       - 24.0
-      local:  # Τοπικές συντεταγμένες [x, y, z] σε km στο σύστημα της περιοχής μελέτης.
+      local:  # Local coordinates [x, y, z] in km in the study-area reference frame.
       - 0.0
       - 100.0
       - 0.0
-fourier_phase_min_snr: 3.0  # Ελάχιστο φασματικό SNR όταν υπάρχει αξιόπιστο φάσμα θορύβου.
-fourier_phase_snr_kind: amplitude  # Είδος φασματικού SNR: amplitude για πλάτος ή power για ισχύ.
-fourier_phase_absolute_amplitude_floor: 0.0  # Απόλυτο κατώφλι του |FFT_L|, στις μονάδες του φάσματος.
-fourier_phase_relative_amplitude_floor: 1.0e-12  # Κατώφλι |FFT_L| ως κλάσμα του μέγιστου εντός της ζώνης φίλτρου.
-fourier_phase_minimum_noise_psd: 0.0  # Κατώτερο όριο αποδεκτής φασματικής πυκνότητας ισχύος θορύβου.
-fourier_phase_fnn_require_snr: false  # Απαίτηση επιβεβαιωμένου φασματικού SNR για χρήση συχνότητας στο FNN.
-fourier_phase_write_unit_phasors: true  # Αποθήκευση D_phase = D/|D| για τις αποδεκτές συχνότητες.
+fourier_phase_min_snr: 3.0  # Minimum spectral SNR when a reliable noise spectrum is available.
+fourier_phase_snr_kind: amplitude  # Spectral SNR definition: amplitude or power ratio.
+fourier_phase_absolute_amplitude_floor: 0.0  # Absolute minimum |FFT_L| in the spectrum amplitude units.
+fourier_phase_relative_amplitude_floor: 1.0e-12  # Minimum |FFT_L| as a fraction of the maximum inside the filter band.
+fourier_phase_minimum_noise_psd: 0.0  # Lower bound for accepted noise power spectral density.
+fourier_phase_fnn_require_snr: false  # Require verified spectral SNR before allowing a frequency in the FNN.
+fourier_phase_write_unit_phasors: true  # Save D_phase = D/|D| for accepted frequencies.

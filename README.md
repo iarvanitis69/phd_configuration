@@ -110,7 +110,7 @@ YAML is read using PyYAML's `safe_load`; consuming environments need `pyyaml`.
 All configuration files must contain a mapping at the root. The migration from
 `config.json` to `config.yaml` preserves all existing keys, values and types.
 Comments beginning with `#` are supported. The supplied YAML documents every
-parameter with a short Greek description, with units where applicable, including
+parameter with a short English description, with units where applicable, including
 velocity-model layers and nested study-area coordinates. Explicitly activated `.json` files
 still use the standard JSON parser so existing run snapshots, including values
 such as `1e-6`, remain compatible. New preprocessing run snapshots are YAML;
@@ -202,6 +202,13 @@ loader does not hardcode those keys. Shared helpers read the keys required by
 their documented operations, such as `LOGS_DIR` for paths and `STUDY_AREA` for
 geometry.
 
+The supplied YAML omits 11 inactive preprocessing settings: optional resampling,
+time/FFT normalization scales, the six optional per-channel picker settings
+other than `p_wave_search_seconds`, and `STF_creation_method`. Acquisition
+settings, both named velocity models, the active model selector and
+`p_wave_search_seconds` are retained with their original values. Existing run
+snapshots remain readable and are not modified by this cleanup.
+
 The `station_s_*` settings define preprocessing's S-arrival plausibility gates:
 minimum/maximum apparent velocity (km/s), minimum/maximum S-to-P travel-time
 ratio, minimum S–P gap and travel-time margin (seconds). Bounds and input
@@ -218,6 +225,20 @@ obsolete in the reordered pipeline and is ignored in older snapshots.
 
 `cut_pre_arrival_seconds=0.2` selects the preprocessing cut margin before the
 earliest native N/E/Z arrival; all output components use one common UTC window.
+`cut_estimated_s_margin_seconds=0.3` is the safety margin before an S arrival
+estimated from the observed P travel time and the active model's `Vp_per_Vs`.
+Preprocessing's existing cutting step prefers the earliest validated observed S,
+without this margin, and estimates S only when no validated S is available.
+The timing function and arrival validation remain in `cut_signals.py`; the
+shared configuration loader only provides the settings. Existing run snapshots
+without this margin use the 0.3 s default; edit the active snapshot to change it
+for an existing run.
+`cut_minimum_duration_reference_seconds=0.5` defines the reference in the
+minimum accepted cut duration: `cut_pre_arrival_seconds + reference -
+cut_estimated_s_margin_seconds`. Preprocessing checks the requested and actual
+available common windows before publishing a station cut; a shorter window is
+excluded with its measured duration and required minimum. This applies whether
+S was observed or estimated; equality with the threshold is accepted.
 `filter_padding_seconds=3.0` sets the minimum reflection duration at each end
 of preprocessing's zero-phase ObsPy band-pass. The filter also requires at
 least three periods at `low_frequency`, then removes the reflected samples.
