@@ -1,6 +1,10 @@
 BASE_DIR: /media/iarv/Samsung/Events  # Root directory for earthquake events and original waveforms.
 LOGS_DIR: /media/iarv/Samsung/Events/Logs  # Directory for logs, processing outputs and run configuration snapshots.
 pipeline_workers: 1  # Default concurrent jobs in heavy stages; per-stage settings/environment overrides take precedence.
+tracking_backend: mongodb  # Preprocessing result tracking uses MongoDB; waveforms and text logs stay on disk.
+mongodb_uri: mongodb://localhost:27017/?replicaSet=preprocessing  # MongoDB replica-set connection for atomic batch writes.
+mongodb_database: phd_preprocessing  # Database containing one collection per pipeline step.
+mongodb_write_batch_size: 100  # Completed work units per database/log batch; also save the final smaller batch.
 min_magnitude_acquisition: 2.0  # Minimum event magnitude for data acquisition.
 max_event_depth_acquisition: 25.0  # Maximum event focal depth for data acquisition (km).
 preset_on_data_acquisition: 30  # Acquisition time before the earthquake origin time (s).

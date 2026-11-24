@@ -23,6 +23,15 @@ supplied structure: they do not compact station paths, expand channel records
 or replace legacy identifiers. Preprocessing-specific manifest handling lives
 in that project's runtime and is explicitly selected by its callers.
 
+The shared YAML declares preprocessing tracking settings: `tracking_backend:
+mongodb`, the local replica-set `mongodb_uri`, `mongodb_database:
+phd_preprocessing`, and `mongodb_write_batch_size: 100`. Preprocessing stores
+one collection per pipeline step, writes completed work in batches of 100 and
+mirrors the complete detailed log blocks to its TXT files and terminal. The
+last smaller batch is flushed on completion or controlled interruption. These
+policies are implemented by preprocessing; the shared loader and JSON/logging
+utilities retain their generic behavior for other projects.
+
 The FFT bundle helpers validate their own file-format labels and schemas locally.
 They support full or partial native NZE, legacy XYZ and LQT bundles, reject mixed coordinate frames,
 and retain per-channel timing and amplitude metadata without importing a
