@@ -214,17 +214,27 @@ minimum/maximum apparent velocity (km/s), minimum/maximum S-to-P travel-time
 ratio, minimum S–P gap and travel-time margin (seconds). Bounds and input
 validation are applied in `boundaries.py`. Only a triggered/AIC S candidate that
 passes the checks is stored; otherwise its channel has `s_arrival="NOT_AVAILABLE"`
-and an explanatory reason. Station P is the earliest native-channel `p_arrival`
-and is recorded as `station_p_arrival`. These additions introduce no pipeline step.
+and an explanatory reason. After native polarization and LQT rotation, `boundaries` measures P/S only
+on L/Q/T. The earliest LQT channel P is `station_p_arrival`; the initial P
+selected internally by polarization remains `initial_station_p_arrival`. These additions introduce no pipeline step.
 
 `station_p_min_rms_snr` has been removed: preprocessing's initial P picker records
 RMS ratios only as diagnostics and ignores that obsolete key in older snapshots.
-The native NZE SNR stage uses `minSnr` to flag each input component, while retaining
-all three waveforms for covariance and LQT. `lqt_snr_threshold_components` is
-obsolete in the reordered pipeline and is ignored in older snapshots.
+The SNR stage reads final per-channel P and signal limits from `boundaries.json`
+and runs only on full L/Q/T records after rotation and boundaries and writes separate
+scores for L, Q and T. `minSnr` excludes the entire station only when measured
+`SNR_L <= minSnr`; Q/T scores remain diagnostic. Missing noise is recorded as an
+unavailable SNR, without inventing a passing value or applying a numeric gate.
+No SNR is measured on native NZE and no NZE SNR flags are generated. The initial
+P picker's RMS ratio remains diagnostic only. QC consumes the existing LQT SNR
+without recalculating it, while accepted QC paths still point to cut bundles.
+`minEventDuration` and `maxEventDuration` constrain the boundary-defined event
+interval in the full record, rather than the short P-to-S cut.
+`lqt_snr_threshold_components` is obsolete and ignored in older snapshots;
+the L-only threshold policy is fixed in preprocessing.
 
 `cut_pre_arrival_seconds=0.2` selects the preprocessing cut margin before the
-earliest native N/E/Z arrival; all output components use one common UTC window.
+earliest final L/Q/T arrival; all output components use one common UTC window.
 `cut_estimated_s_margin_seconds=0.3` is the safety margin before an S arrival
 estimated from the observed P travel time and the active model's `Vp_per_Vs`.
 Preprocessing's existing cutting step prefers the earliest validated observed S,
@@ -244,6 +254,18 @@ of preprocessing's zero-phase ObsPy band-pass. The filter also requires at
 least three periods at `low_frequency`, then removes the reflected samples.
 The signal length and timing are preserved.
 The current filter band is `low_frequency=0.5` to `high_frequency=30` Hz.
+`boundaries_workers=1` limits concurrent stations in preprocessing's boundaries
+stage to reduce peak waveform RAM. The stage also defaults to one worker when
+an older snapshot omits this key. This is an execution setting: completed
+scientific results remain reusable when the worker count changes. The existing
+`BOUNDARIES_WORKERS` environment override takes precedence.
+`pipeline_workers=1` supplies the default for preprocessing's other heavy
+station, waveform, event-geometry, QC, Fourier and verification jobs. Explicit
+`<operation>_workers` settings override the default and `<OPERATION>_WORKERS`
+environment variables override both. These control execution concurrency,
+not scientific processing parameters. Older snapshots without the global key
+also default to one worker. Preprocessing owns the bounded job queues and
+cache/reuse policy; the shared loader only supplies configuration values.
 Preprocessing’s existing verification stage reads saved Fourier coefficients.
 Its `fourier_phase_*` settings control amplitude floors, the spectral SNR
 threshold/metric, optional unit phasors and `fourier_phase_fnn_require_snr`.
@@ -285,3 +307,22 @@ pandoc README.md -o README.pdf \
   -V linkcolor=blue \
   -V urlcolor=blue
 ```
+
+## Preprocessing storage settings
+
+`tracking_backend: mongodb`, `mongodb_uri` and `mongodb_database` configure
+the preprocessing result database. The shared loader returns these settings
+without importing MongoDB or any preprocessing runtime. Database connections,
+transactions, JSON locator resolution and migration belong to preprocessing.
+Other projects can continue using the shared loader independently.
+Preprocessing owns the four collections per step (`<step>_included`,
+`<step>_excluded`, `<step>_records`, `<step>_metadata`); this shared package does
+not manage their schema or connect to the database.
+`mongodb_write_batch_size: 100` controls how many new completed work units
+preprocessing commits together. Use `1` for immediate writes. Controlled stops
+flush the final remainder; an abrupt stop can require repeating up to 99 units
+at size 100. This performance setting does not change scientific cache validity.
+Preprocessing also publishes identical detailed terminal/TXT log blocks at
+these commit boundaries. Its buffering adapter belongs to `stage_runtime.py`;
+the shared `utils.TeeLogger` keeps its ordinary immediate logging behavior for
+other projects.
