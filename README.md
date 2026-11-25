@@ -23,6 +23,27 @@ supplied structure: they do not compact station paths, expand channel records
 or replace legacy identifiers. Preprocessing-specific manifest handling lives
 in that project's runtime and is explicitly selected by its callers.
 
+The shared YAML declares preprocessing tracking settings: `tracking_backend:
+mongodb`, the local replica-set `mongodb_uri`, `mongodb_database:
+phd_preprocessing`, and `mongodb_write_batch_size: 100`. Preprocessing stores
+one collection per pipeline step, writes completed work in batches of 100 and
+mirrors the complete detailed log blocks to its TXT files and terminal. The
+last smaller batch is flushed on completion or controlled interruption. These
+policies are implemented by preprocessing; the shared loader and JSON/logging
+utilities retain their generic behavior for other projects.
+
+The study volume is fixed at **100 x 100 x 25 km**, with local bounds
+`[0,100] x [0,100] x [0,25]` km (top depth -1 km, bottom depth 24 km).
+The positive integer `k` is the sole voxel-resolution setting (default 25).
+Preprocessing derives `grid_shape=(4*k,4*k,k)`, cube side `25/k` km and total
+`16*k^3` voxels. Every positive integer k tiles the volume exactly; neither
+`STUDY_AREA.grid_shape` nor `cube_voxel_side_length` is an input setting now.
+Their legacy values in saved snapshots are ignored. A selected legacy snapshot
+without k inherits k from this base YAML; add k to the snapshot to override it.
+For example, k=5 gives 20 x 20 x 5 cubes with 5 km sides; k=25 gives
+100 x 100 x 25 cubes with 1 km sides. Grid creation, ray geometry and station
+QC share preprocessing's `voxel_grid.py`; the generic shared loader is unchanged.
+
 The FFT bundle helpers validate their own file-format labels and schemas locally.
 They support full or partial native NZE, legacy XYZ and LQT bundles, reject mixed coordinate frames,
 and retain per-channel timing and amplitude metadata without importing a
@@ -307,22 +328,3 @@ pandoc README.md -o README.pdf \
   -V linkcolor=blue \
   -V urlcolor=blue
 ```
-
-## Preprocessing storage settings
-
-`tracking_backend: mongodb`, `mongodb_uri` and `mongodb_database` configure
-the preprocessing result database. The shared loader returns these settings
-without importing MongoDB or any preprocessing runtime. Database connections,
-transactions, JSON locator resolution and migration belong to preprocessing.
-Other projects can continue using the shared loader independently.
-Preprocessing owns the four collections per step (`<step>_included`,
-`<step>_excluded`, `<step>_records`, `<step>_metadata`); this shared package does
-not manage their schema or connect to the database.
-`mongodb_write_batch_size: 100` controls how many new completed work units
-preprocessing commits together. Use `1` for immediate writes. Controlled stops
-flush the final remainder; an abrupt stop can require repeating up to 99 units
-at size 100. This performance setting does not change scientific cache validity.
-Preprocessing also publishes identical detailed terminal/TXT log blocks at
-these commit boundaries. Its buffering adapter belongs to `stage_runtime.py`;
-the shared `utils.TeeLogger` keeps its ordinary immediate logging behavior for
-other projects.
