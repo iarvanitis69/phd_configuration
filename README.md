@@ -32,6 +32,18 @@ last smaller batch is flushed on completion or controlled interruption. These
 policies are implemented by preprocessing; the shared loader and JSON/logging
 utilities retain their generic behavior for other projects.
 
+The study volume is fixed at **100 x 100 x 25 km**, with local bounds
+`[0,100] x [0,100] x [0,25]` km (top depth -1 km, bottom depth 24 km).
+The positive integer `k` is the sole voxel-resolution setting (currently `k: 5`, giving 5 km cubes).
+Preprocessing derives `grid_shape=(4*k,4*k,k)`, cube side `25/k` km and total
+`16*k^3` voxels. Every positive integer k tiles the volume exactly; neither
+`STUDY_AREA.grid_shape` nor `cube_voxel_side_length` is an input setting now.
+Their legacy values in saved snapshots are ignored. A selected legacy snapshot
+without k inherits k from this base YAML; add k to the snapshot to override it.
+For example, k=5 gives 20 x 20 x 5 cubes with 5 km sides; k=25 gives
+100 x 100 x 25 cubes with 1 km sides. Grid creation, ray geometry and station
+QC share preprocessing's `voxel_grid.py`; the generic shared loader is unchanged.
+
 The FFT bundle helpers validate their own file-format labels and schemas locally.
 They support full or partial native NZE, legacy XYZ and LQT bundles, reject mixed coordinate frames,
 and retain per-channel timing and amplitude metadata without importing a
@@ -244,7 +256,7 @@ the L-only threshold policy is fixed in preprocessing.
 
 `cut_pre_arrival_seconds=0.2` selects the preprocessing cut margin before the
 earliest final L/Q/T arrival; all output components use one common UTC window.
-`cut_estimated_s_margin_seconds=0.3` is the safety margin before an S arrival
+`cut_estimated_s_margin_seconds=0` is the current safety margin before an S arrival
 estimated from the observed P travel time and the active model's `Vp_per_Vs`.
 Preprocessing's existing cutting step prefers the earliest validated observed S,
 without this margin, and estimates S only when no validated S is available.

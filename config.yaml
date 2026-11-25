@@ -9,7 +9,7 @@ min_magnitude_acquisition: 2.0  # Minimum event magnitude for data acquisition.
 max_event_depth_acquisition: 25.0  # Maximum event focal depth for data acquisition (km).
 preset_on_data_acquisition: 30  # Acquisition time before the earthquake origin time (s).
 offset_on_data_acquisition: 240  # Acquisition time after the earthquake origin time (s).
-cube_voxel_side_length: 1  # Side length of each cubic voxel (km).
+k: 5  # Positive integer: vertical voxel layers; side=25/k km, grid=(4k,4k,k).
 velocity_model: velocity_model_valianatos  # Name of the active velocity model defined below.
 velocity_model_valianatos:  # Layered Valianatos velocity model.
   depth_bin_edges_km:  # Layer depth boundaries (km); each adjacent pair defines one layer.
@@ -92,11 +92,8 @@ snr_noise_seconds: 30.0  # Maximum pre-P noise-window duration for SNR measureme
 snr_signal_seconds: 30.0  # Maximum post-P signal-window duration for SNR measurement (s).
 snr_noise_guard_seconds: 1.0  # Gap between the noise-window end and P arrival for SNR (s).
 snr_min_noise_seconds: 1.0  # Minimum available noise duration required for SNR measurement (s).
-STUDY_AREA:  # Geographic bounds, local coordinates and grid of the study volume.
-  grid_shape:  # Number of voxels along each local coordinate axis.
-    n: 100  # Number of voxels along the x axis.
-    m: 100  # Number of voxels along the y axis.
-    l: 25  # Number of voxels along the z axis.
+STUDY_AREA:  # Fixed 100 x 100 x 25 km volume; top depth -1 km, bottom depth 24 km.
+  # grid_shape=(4*k,4*k,k) and voxel side=25/k km are derived automatically.
   corners:  # Eight corners of the three-dimensional study volume.
     top_SW:  # Upper southwest corner of the study volume.
       geo:  # Geographic coordinates [latitude in degrees, longitude in degrees, depth in km].
