@@ -14,6 +14,9 @@ from obspy import Trace
 
 from phd_configuration import config_loader as config
 
+from .storage_io import open, os, tempfile, ModuleProxy, save_figure, process_context
+np = ModuleProxy('np', np)
+
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _LINE_PREFIX_RE = re.compile(r"^\[(\d+)/(\d+)\]\s+\S+(?:\.py)?(?:\s|$)")
 _EMBEDDED_LINE_PREFIX_RE = re.compile(r"\[(\d+/\d+)\]\s+(\S+(?:\.py)?):?\s*")
@@ -72,7 +75,7 @@ def process_timer(script_name: str):
 def timed_process(script_name: str):
     def decorator(func):
         def wrapper(*args, **kwargs):
-            with process_timer(script_name):
+            with process_context(script_name), process_timer(script_name):
                 return func(*args, **kwargs)
 
         wrapper.__name__ = getattr(func, "__name__", "wrapper")
@@ -504,7 +507,7 @@ class LinePrefixWriter:
             after = line[match.end() :]
             cleaned = f"{before}{after}".lstrip()
             return f"[{match.group(1)}] {match.group(2)} {cleaned}"
-        return f"[0/0] {self.script_name} {line}"
+        return f"{self.script_name} {line}"
 
     def write(self, message):
         text = str(message)
@@ -557,7 +560,7 @@ class TeeLogger:
             after = line[match.end() :]
             cleaned = f"{before}{after}".lstrip()
             return f"[{match.group(1)}] {match.group(2)} {cleaned}"
-        return f"[0/0] {self.script_name} {line}"
+        return f"{self.script_name} {line}"
 
     def write(self, message):
         text = str(message)
@@ -840,6 +843,6 @@ def plot_fft_npz_spectrum(
         limit = float(xlim_hz)
         if np.isfinite(limit) and limit > 0.0:
             ax.set_xlim(0.0, limit)
-    fig.savefig(output_path, dpi=150)
+    save_figure(fig, output_path, dpi=150)
     plt.close(fig)
     return output_path

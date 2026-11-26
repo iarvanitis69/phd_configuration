@@ -24,17 +24,29 @@ or replace legacy identifiers. Preprocessing-specific manifest handling lives
 in that project's runtime and is explicitly selected by its callers.
 
 The shared YAML declares preprocessing tracking settings: `tracking_backend:
-mongodb`, the local replica-set `mongodb_uri`, `mongodb_database:
-phd_preprocessing`, and `mongodb_write_batch_size: 100`. Preprocessing stores
-one collection per pipeline step, writes completed work in batches of 100 and
+hdf5` and `tracking_write_batch_size: 100`. No database connection settings
+are required. Preprocessing stores
+one collection per pipeline step in its configured backend, writes completed work in batches of 100 and
 mirrors the complete detailed log blocks to its TXT files and terminal. The
 last smaller batch is flushed on completion or controlled interruption. These
 policies are implemented by preprocessing; the shared loader and JSON/logging
 utilities retain their generic behavior for other projects.
 
+The configuration also declares `hdf5_path: project_data.h5`. The consuming
+preprocessing application resolves a relative path against `BASE_DIR`; this shared
+package does not import HDF5 or a database client. `tracking_backend` defaults to `hdf5`.
+
+`storage_io.set_provider(provider)` optionally injects application IO into shared
+JSON/logging/FFT/plot helpers. With no provider, they use the ordinary filesystem.
+The provider supplies `open`, filesystem/NumPy/temporary-file adapters and
+`save_figure`. The configuration loader also exposes generic `set_file_opener` so
+run snapshots can be read from an archive without adding an application dependency.
+The loader remains independently usable as a standalone module. Payload validation,
+FFT mathematics, coordinate conversions and file formats are unchanged.
+
 The study volume is fixed at **100 x 100 x 25 km**, with local bounds
 `[0,100] x [0,100] x [0,25]` km (top depth -1 km, bottom depth 24 km).
-The positive integer `k` is the sole voxel-resolution setting (default 25).
+The positive integer `k` is the sole voxel-resolution setting (currently `k: 5`, giving 5 km cubes).
 Preprocessing derives `grid_shape=(4*k,4*k,k)`, cube side `25/k` km and total
 `16*k^3` voxels. Every positive integer k tiles the volume exactly; neither
 `STUDY_AREA.grid_shape` nor `cube_voxel_side_length` is an input setting now.
@@ -256,7 +268,7 @@ the L-only threshold policy is fixed in preprocessing.
 
 `cut_pre_arrival_seconds=0.2` selects the preprocessing cut margin before the
 earliest final L/Q/T arrival; all output components use one common UTC window.
-`cut_estimated_s_margin_seconds=0.3` is the safety margin before an S arrival
+`cut_estimated_s_margin_seconds=0` is the current safety margin before an S arrival
 estimated from the observed P travel time and the active model's `Vp_per_Vs`.
 Preprocessing's existing cutting step prefers the earliest validated observed S,
 without this margin, and estimates S only when no validated S is available.
