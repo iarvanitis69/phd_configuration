@@ -287,16 +287,19 @@ of preprocessing's zero-phase ObsPy band-pass. The filter also requires at
 least three periods at `low_frequency`, then removes the reflected samples.
 The signal length and timing are preserved.
 The current filter band is `low_frequency=0.5` to `high_frequency=30` Hz.
-`boundaries_workers=1` limits concurrent stations in preprocessing's boundaries
-stage to reduce peak waveform RAM. The stage also defaults to one worker when
+`boundaries_workers=2` enables two concurrent stations in preprocessing's boundaries
+stage with a bounded job queue. The stage also defaults to one worker when
 an older snapshot omits this key. This is an execution setting: completed
 scientific results remain reusable when the worker count changes. The existing
 `BOUNDARIES_WORKERS` environment override takes precedence.
-`pipeline_workers=1` supplies the default for preprocessing's other heavy
+`pipeline_workers=2` supplies the default for preprocessing's other heavy
 station, waveform, event-geometry, QC, Fourier and verification jobs. Explicit
 `<operation>_workers` settings override the default and `<OPERATION>_WORKERS`
 environment variables override both. These control execution concurrency,
-not scientific processing parameters. Older snapshots without the global key
+not scientific processing parameters. A running preprocessing process reads
+its worker settings at startup; restart normally to apply changes. The current
+run snapshot may be updated explicitly for worker-only changes without changing
+scientific settings or invalidating completed results. Older snapshots without the global key
 also default to one worker. Preprocessing owns the bounded job queues and
 cache/reuse policy; the shared loader only supplies configuration values.
 Preprocessing’s existing verification stage reads saved Fourier coefficients.
