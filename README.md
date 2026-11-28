@@ -107,7 +107,7 @@ Typical usage from a parent repository:
 from phd_configuration import config_loader as config
 from phd_configuration.utils import geo_to_cartesian_wrapper
 
-logs_dir = config.get("LOGS_DIR")
+tracking_root = config.tracking_root()  # Logical BASE_DIR/Logs; creates no directory.
 x, y, z = geo_to_cartesian_wrapper(lat, lon, depth_km)
 ```
 
@@ -231,9 +231,12 @@ lookup remain in preprocessing; the shared loader simply reads the JSON.
 The shared `config.yaml` contains settings used by the consuming projects,
 including data paths, acquisition thresholds, preprocessing SNR/filter/polarization
 settings and study-area geometry. Each project reads the keys it needs; the
-loader does not hardcode those keys. Shared helpers read the keys required by
-their documented operations, such as `LOGS_DIR` for paths and `STUDY_AREA` for
-geometry.
+loader reads those keys without creating output files. `config.tracking_root()`
+derives the logical manifest namespace from `BASE_DIR/Logs`; `LOGS_DIR` is not
+required in new configurations. Older snapshots with explicit `LOGS_DIR` remain
+readable so existing HDF5 manifest IDs and checkpoints stay valid. Resolving this
+namespace does not create a disk directory or a JSON file. Shared geometry
+helpers read `STUDY_AREA`.
 
 The supplied YAML omits 11 inactive preprocessing settings: optional resampling,
 time/FFT normalization scales, the six optional per-channel picker settings
@@ -287,15 +290,10 @@ of preprocessing's zero-phase ObsPy band-pass. The filter also requires at
 least three periods at `low_frequency`, then removes the reflected samples.
 The signal length and timing are preserved.
 The current filter band is `low_frequency=0.5` to `high_frequency=30` Hz.
-`boundaries_workers=2` enables two concurrent stations in preprocessing's boundaries
-stage with a bounded job queue. The stage also defaults to one worker when
-an older snapshot omits this key. This is an execution setting: completed
-scientific results remain reusable when the worker count changes. The existing
-`BOUNDARIES_WORKERS` environment override takes precedence.
-`pipeline_workers=2` supplies the default for preprocessing's other heavy
-station, waveform, event-geometry, QC, Fourier and verification jobs. Explicit
-`<operation>_workers` settings override the default and `<OPERATION>_WORKERS`
-environment variables override both. These control execution concurrency,
+`pipeline_workers=2` controls all preprocessing worker pools, including boundaries,
+station checks, waveform transforms, event geometry, QC, Fourier and verification.
+There are no per-stage worker settings or environment overrides.
+These control execution concurrency,
 not scientific processing parameters. A running preprocessing process reads
 its worker settings at startup; restart normally to apply changes. The current
 run snapshot may be updated explicitly for worker-only changes without changing

@@ -56,6 +56,21 @@ def base_all():
     return _load_base()
 
 
+def tracking_root(settings=None):
+    """Logical manifest namespace; resolving it never creates a directory.
+
+    Keep explicit roots in older snapshots readable so their manifest IDs and
+    checkpoints stay unchanged. New configurations only need BASE_DIR.
+    """
+    legacy = get('LOGS_DIR') if settings is None else settings.get('LOGS_DIR')
+    if legacy:
+        return os.fspath(legacy)
+    base = get('BASE_DIR') if settings is None else settings.get('BASE_DIR')
+    if not base:
+        raise RuntimeError('BASE_DIR not found in config')
+    return os.path.join(os.fspath(base), 'Logs')
+
+
 def source_path():
     _load()
     return _CONFIG_SOURCE_PATH

@@ -1,6 +1,5 @@
 BASE_DIR: /media/iarv/Samsung/Events  # Root directory for earthquake events and original waveforms.
-LOGS_DIR: /media/iarv/Samsung/Events/Logs  # Directory for logs, processing outputs and run configuration snapshots.
-pipeline_workers: 2  # Default concurrent jobs in heavy stages; per-stage settings/environment overrides take precedence.
+pipeline_workers: 6  # Concurrent jobs in every stage supporting parallel processing.
 tracking_backend: hdf5  # One authoritative archive per stage; original source data remain unchanged.
 hdf5_path: project_data.h5  # Stage .hd5 archives and .txt logs use its parent/HDFView; relative to BASE_DIR.
 tracking_write_batch_size: 100  # Completed work units per HDF5/log batch; also save the final smaller batch.
@@ -85,7 +84,6 @@ station_s_min_p_travel_ratio: 1.2  # Minimum travel-time ratio tS/tP measured fr
 station_s_max_p_travel_ratio: 2.5  # Maximum travel-time ratio tS/tP measured from the event origin.
 station_s_min_p_gap_seconds: 0.1  # Minimum time separation between S and P arrivals (s).
 station_s_travel_margin_seconds: 2.0  # Extra margin for the geometric S search window (s).
-boundaries_workers: 2  # Concurrent stations in boundaries; bounded to two active station jobs.
 p_wave_search_seconds: 5.0  # Per-channel P search radius around station P in boundaries (s).
 snr_noise_seconds: 30.0  # Maximum pre-P noise-window duration for SNR measurement (s).
 snr_signal_seconds: 30.0  # Maximum post-P signal-window duration for SNR measurement (s).
